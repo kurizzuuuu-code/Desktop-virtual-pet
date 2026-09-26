@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Discord AI Agent</title>
+    <link rel="stylesheet" href="app.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <h1>Discord AI Agent</h1>
+        <p id="statusLine" class="muted">Stopped</p>
+      </div>
+      <div class="actions">
+        <button id="saveBtn" type="button" class="ghost">Save settings</button>
+        <button id="startBtn" type="button" class="primary">Start bot</button>
+        <button id="stopBtn" type="button" class="danger" disabled>Stop</button>
+      </div>
+    </header>
+
+    <nav class="tabs" role="tablist">
+      <button type="button" class="tab active" data-tab="connection">Connection</button>
+      <button type="button" class="tab" data-tab="personality">Personality</button>
+      <button type="button" class="tab" data-tab="behavior">Features</button>
+      <button type="button" class="tab" data-tab="logs">Logs</button>
+    </nav>
+
+    <main>
+      <section id="connection" class="panel active">
+        <label>Discord bot token
+          <input id="discordToken" type="password" autocomplete="off" />
+        </label>
+        <label>Gemini API key
+          <input id="geminiApiKey" type="password" autocomplete="off" />
+        </label>
+        <label>Tenor API key (GIFs)
+          <input id="tenorApiKey" type="password" autocomplete="off" />
+        </label>
+        <label>Scheduled post channel ID
+          <input id="targetChannelId" type="text" placeholder="Right-click channel → Copy Channel ID" />
+        </label>
+        <label>Owner user ID (bot is extra rude to this person)
+          <input id="ownerUserId" type="text" placeholder="Right-click user → Copy User ID" />
+        </label>
+        <p class="hint">Enable Message Content Intent in the Discord Developer Portal. Keys stay on this machine.</p>
+      </section>
+
+      <section id="personality" class="panel">
+        <label>Character name
+          <input id="botName" type="text" />
+        </label>
+        <label>Identity
+          <textarea id="identity" rows="5"></textarea>
+        </label>
+        <label>Tone
+          <textarea id="tone" rows="4"></textarea>
+        </label>
+        <label>Catchphrases (one per line)
+          <textarea id="catchphrases" rows="4"></textarea>
+        </label>
+        <label>Dislikes (one per line)
+          <textarea id="dislikes" rows="4"></textarea>
+        </label>
+        <label>Hard rules
+          <textarea id="extraRules" rows="4"></textarea>
+        </label>
+      </section>
+
+      <section id="behavior" class="panel">
+        <div class="grid">
+          <label>Gemini model
+            <select id="model">
+              <option value="gemini-3.6-flash">gemini-3.6-flash</option>
+              <option value="gemini-3.5-flash">gemini-3.5-flash</option>
+              <option value="gemini-3-flash-preview">gemini-3-flash-preview</option>
+              <option value="gemini-2.5-flash">gemini-2.5-flash</option>
+            </select>
+          </label>
+          <label>Thinking level
+            <select id="thinkingLevel">
+              <option value="low">low</option>
+              <option value="medium">medium</option>
+              <option value="high">high</option>
+            </select>
+          </label>
+          <label>Temperature
+            <input id="temperature" type="number" min="0" max="2" step="0.1" />
+          </label>
+          <label>Max reply tokens
+            <input id="maxOutputTokens" type="number" min="64" max="2048" step="32" />
+          </label>
+          <label>Memory turns per chat
+            <input id="maxHistoryTurns" type="number" min="4" max="80" />
+          </label>
+          <label>Reply cooldown (ms)
+            <input id="cooldownMs" type="number" min="0" max="30000" step="100" />
+          </label>
+          <label>Post every N minutes
+            <input id="scheduleEveryMinutes" type="number" min="1" max="59" />
+          </label>
+        </div>
+        <label>Fallback reply when Gemini fails
+          <input id="fallbackReply" type="text" />
+        </label>
+        <fieldset>
+          <legend>When to reply</legend>
+          <label class="check"><input id="replyOnMention" type="checkbox" /> @mention</label>
+          <label class="check"><input id="replyOnReply" type="checkbox" /> Direct replies</label>
+          <label class="check"><input id="replyInDm" type="checkbox" /> Direct messages</label>
+          <label class="check"><input id="scheduledEnabled" type="checkbox" /> Interval channel posts</label>
+        </fieldset>
+        <p class="hint">Free-tier Flash models only. 3.1 Pro is paid and will not be used.</p>
+      </section>
+
+      <section id="logs" class="panel">
+        <pre id="logView"></pre>
+      </section>
+    </main>
+
+    <p id="toast" hidden></p>
+    <script src="app.js"></script>
+  </body>
+</html>

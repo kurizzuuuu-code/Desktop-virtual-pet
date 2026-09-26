@@ -1,0 +1,3 @@
+"""
+Desktop Companion UI Modules
+"""

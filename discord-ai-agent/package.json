@@ -1,0 +1,57 @@
+{
+  "name": "discord-ai-agent",
+  "version": "1.1.0",
+  "description": "Personality-driven Discord AI agent with a desktop settings UI",
+  "main": "main.js",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron .",
+    "bot": "electron .",
+    "build": "electron-builder --win portable"
+  },
+  "build": {
+    "appId": "com.discord.aiagent",
+    "productName": "Discord AI Agent",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "bot.js",
+      "defaults.js",
+      "ui/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "portable"
+      ],
+      "signAndEditExecutable": false
+    },
+    "portable": {
+      "artifactName": "Discord AI Agent ${version}.exe"
+    }
+  },
+  "keywords": [
+    "discord",
+    "gemini",
+    "genai",
+    "bot"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@google/genai": "^1.19.0",
+    "axios": "^1.20.0",
+    "discord.js": "^14.22.1",
+    "node-cron": "^4.2.1"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  }
+}

@@ -1,0 +1,60 @@
+{
+  "name": "desktop-virtual-pet",
+  "version": "1.60.0",
+  "description": "A customizable desktop virtual pet that moves, attacks your cursor, and loves head pets",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron .",
+    "prebuild": "node scripts/bake-defaults.js",
+    "build": "electron-builder --win portable"
+  },
+  "build": {
+    "appId": "com.desktop.virtualpet",
+    "productName": "Virtual Pet",
+    "directories": {
+      "output": "build-output"
+    },
+      "files": [
+        "main.js",
+        "voicevox-core.js",
+        "preload.js",
+        "chat/**/*",
+        "scripts/**/*",
+        "pet/**/*",
+        "settings/**/*",
+        "prank/**/*",
+        "assets/**/*",
+        "package.json"
+      ],
+    "asarUnpack": [
+      "scripts/**",
+      "node_modules/koffi/**",
+      "assets/default/**"
+    ],
+    "win": {
+      "target": [
+        "portable"
+      ],
+      "icon": "assets/icon.ico",
+      "signAndEditExecutable": false
+    },
+    "portable": {
+      "artifactName": "Virtual Pet ${version}.exe"
+    }
+  },
+  "keywords": [
+    "virtual-pet",
+    "desktop",
+    "electron"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "dependencies": {
+    "koffi": "^3.0.2"
+  }
+}

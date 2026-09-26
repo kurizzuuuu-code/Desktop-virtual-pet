@@ -1,0 +1,13 @@
+# Core UI and Desktop Overlay
+PyQt6>=6.4.0
+
+# Audio Monitoring & Music Detection
+sounddevice>=0.4.6
+numpy>=1.22.0
+
+# Window / Activity Detection
+psutil>=5.9.0
+pygetwindow>=0.0.9; sys_platform == 'win32'
+
+# Image & GIF Handling
+Pillow>=9.5.0
