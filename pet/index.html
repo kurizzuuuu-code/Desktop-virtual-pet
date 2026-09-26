@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Virtual Pet</title>
+  <link rel="stylesheet" href="pet.css">
+</head>
+<body>
+  <div id="pet-root">
+    <div id="rps-bar" hidden>
+      <div id="rps-picks">
+        <button type="button" class="rps-btn" data-throw="rock" title="Rock">✊</button>
+        <button type="button" class="rps-btn" data-throw="paper" title="Paper">📄</button>
+        <button type="button" class="rps-btn" data-throw="scissors" title="Scissors">✂️</button>
+      </div>
+      <div id="rps-vs" hidden>
+        <div class="rps-card" id="rps-me">✊</div>
+        <div class="rps-vs-label">VS</div>
+        <div class="rps-card" id="rps-pet">❓</div>
+      </div>
+    </div>
+    <div id="speech-zone">
+      <div id="speech-hitbox" aria-hidden="true"></div>
+      <div class="speech" id="speech"></div>
+    </div>
+    <div id="pet-area">
+      <div id="pet" class="state-idle">
+        <div id="body-hitbox" aria-hidden="true"></div>
+        <div id="pet-sprite" class="pet-sprite hidden" aria-hidden="true">
+          <img id="sprite-img" alt="" draggable="false" />
+        </div>
+        <div id="pet-fallback" title="No character art — pick a pack in Settings"></div>
+        <div id="head-hitbox"></div>
+        <div id="pet-interact"></div>
+      </div>
+    </div>
+  </div>
+  <script src="pet.js"></script>
+</body>
+</html>

@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chat with pet</title>
+  <link rel="stylesheet" href="chat.css">
+</head>
+<body>
+  <div id="chat-root">
+    <header id="chat-header">
+      <span>Chat · <span id="chat-pet-name">Pet</span></span>
+      <div class="chat-win-btns">
+        <button type="button" id="chatMin" title="Minimize">–</button>
+        <button type="button" id="chatClose" class="danger" title="Close">✕</button>
+      </div>
+    </header>
+    <div id="chat-log" aria-live="polite"></div>
+    <div id="chat-input-row">
+      <input type="text" id="chat-input" maxlength="200" placeholder="Say something…" autocomplete="off">
+      <button type="button" id="chat-send">Send</button>
+    </div>
+  </div>
+  <script src="chat.js"></script>
+</body>
+</html>

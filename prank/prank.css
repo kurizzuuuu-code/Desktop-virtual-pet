@@ -1,0 +1,532 @@
+/* Virtual Pet — prank overlay. Fullscreen, transparent, one layer at a time. */
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+  cursor: default;
+  user-select: none;
+  -webkit-user-select: none;
+  font-family: "Segoe UI", system-ui, sans-serif;
+}
+
+#prank-root {
+  position: fixed;
+  inset: 0;
+}
+
+.fx {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+}
+
+.fx[hidden] { display: none; }
+
+/* =====================================================================
+   GLITCH — mostly transparent so the desktop shows through the artifacts
+   ===================================================================== */
+
+#fx-glitch { mix-blend-mode: screen; }
+
+.gl-bars,
+.gl-scratches,
+.gl-scanlines,
+.gl-noise,
+.gl-rgb {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.gl-scanlines {
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.16) 0px,
+    rgba(0, 0, 0, 0.16) 1px,
+    rgba(255, 255, 255, 0.03) 2px,
+    rgba(255, 255, 255, 0.03) 3px
+  );
+  animation: gl-scan 0.55s steps(6, end) infinite;
+  opacity: 0.55;
+}
+
+@keyframes gl-scan {
+  from { transform: translateY(0); }
+  to { transform: translateY(12px); }
+}
+
+.gl-bars {
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0px,
+    transparent 26px,
+    rgba(255, 30, 90, 0.28) 27px,
+    rgba(30, 220, 255, 0.24) 30px,
+    transparent 34px
+  );
+  animation: gl-bars 0.24s steps(3, end) infinite;
+}
+
+@keyframes gl-bars {
+  0% { transform: translateY(-18px); opacity: 0.7; }
+  50% { transform: translateY(9px); opacity: 0.35; }
+  100% { transform: translateY(-4px); opacity: 0.8; }
+}
+
+.gl-scratches::before,
+.gl-scratches::after {
+  content: "";
+  position: absolute;
+  left: -5%;
+  right: -5%;
+  height: 6vh;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.5) 20%, rgba(255, 0, 90, 0.55) 50%, rgba(0, 255, 240, 0.45) 70%, transparent);
+  filter: blur(1px);
+  animation: gl-slice 0.7s steps(2, end) infinite;
+}
+
+.gl-scratches::before { top: 18%; }
+.gl-scratches::after { top: 63%; animation-duration: 0.45s; animation-direction: reverse; }
+
+@keyframes gl-slice {
+  0% { transform: translateX(-6%) scaleY(1); opacity: 0.85; }
+  40% { transform: translateX(5%) scaleY(2.4); opacity: 0.35; }
+  70% { transform: translateX(-3%) scaleY(0.6); opacity: 0.9; }
+  100% { transform: translateX(2%) scaleY(1.4); opacity: 0.5; }
+}
+
+.gl-noise {
+  opacity: 0.16;
+  background: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.75'/%3E%3C/svg%3E");
+  animation: gl-noise 0.18s steps(2, end) infinite;
+}
+
+@keyframes gl-noise {
+  0% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(-14px, 8px, 0); }
+  100% { transform: translate3d(10px, -11px, 0); }
+}
+
+.gl-banner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.gl-text {
+  position: relative;
+  display: inline-block;
+  font: 900 clamp(28px, 7vw, 96px) / 1 "Consolas", "Courier New", monospace;
+  letter-spacing: 0.18em;
+  color: rgba(255, 255, 255, 0.92);
+  text-shadow:
+    0 0 14px rgba(255, 0, 120, 0.9),
+    0 0 44px rgba(0, 200, 255, 0.65);
+  animation: gl-text 0.28s steps(2, end) infinite;
+}
+
+@keyframes gl-text {
+  0% { transform: translate(0, 0) skewX(0deg); opacity: 1; }
+  30% { transform: translate(-9px, 3px) skewX(-9deg); opacity: 0.75; }
+  62% { transform: translate(7px, -4px) skewX(6deg); opacity: 0.95; }
+  100% { transform: translate(-3px, 1px) skewX(-2deg); opacity: 0.85; }
+}
+
+.gl-rgb {
+  font: 900 clamp(28px, 7vw, 96px) / 1 "Consolas", "Courier New", monospace;
+  letter-spacing: 0.18em;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  mix-blend-mode: screen;
+  animation: gl-text 0.22s steps(2, end) infinite;
+}
+
+.gl-rgb-a { color: rgba(255, 0, 90, 0.75); transform: translate(calc(-50% - 6px), calc(-50% + 2px)); }
+.gl-rgb-b { color: rgba(0, 220, 255, 0.7); transform: translate(calc(-50% + 7px), calc(-50% - 3px)); }
+
+.gl-corner {
+  position: absolute;
+  width: 26vw;
+  height: 26vw;
+  border: 3px solid rgba(255, 40, 90, 0.75);
+  filter: blur(0.5px);
+  animation: gl-corner 0.9s steps(3, end) infinite;
+}
+
+.gl-corner-tl { top: -12vw; left: -12vw; border-right: 0; border-bottom: 0; border-radius: 0 0 40% 0; }
+.gl-corner-br { bottom: -12vw; right: -12vw; border-left: 0; border-top: 0; border-radius: 40% 0 0 0; animation-direction: reverse; }
+
+@keyframes gl-corner {
+  0% { opacity: 0.9; transform: scale(1); }
+  50% { opacity: 0.25; transform: scale(1.06); }
+  100% { opacity: 0.75; transform: scale(0.98); }
+}
+
+.gl-status {
+  position: absolute;
+  left: 3vw;
+  bottom: 3vh;
+  font: 700 15px / 1.4 "Consolas", "Courier New", monospace;
+  color: #6cff9e;
+  text-shadow: 0 0 10px rgba(80, 255, 140, 0.8);
+  pointer-events: none;
+}
+
+/* =====================================================================
+   JUMPSCARE
+   ===================================================================== */
+
+#fx-scare { background: #000; }
+
+.sc-fill {
+  position: absolute;
+  inset: 0;
+  background: #000;
+  transition: opacity 0.08s linear;
+}
+
+.sc-img {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 130%;
+  height: 130%;
+  object-fit: contain;
+  transform: translate(-50%, -50%) scale(0.6);
+  filter: contrast(1.9) saturate(0.25) brightness(0.85) drop-shadow(0 0 40px rgba(255, 0, 0, 0.65));
+  opacity: 0;
+  transition: opacity 0.06s linear, transform 0.09s cubic-bezier(0.2, 1.6, 0.3, 1);
+}
+
+#fx-scare.sc-on .sc-img {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+  animation: sc-shake 0.09s steps(2, end) infinite;
+}
+
+#fx-scare.sc-on .sc-fill { opacity: 0; }
+
+@keyframes sc-shake {
+  0% { margin-left: -26px; margin-top: 10px; }
+  25% { margin-left: 22px; margin-top: -14px; }
+  50% { margin-left: -14px; margin-top: -6px; }
+  75% { margin-left: 26px; margin-top: 14px; }
+  100% { margin-left: -20px; margin-top: 8px; }
+}
+
+.sc-eyes {
+  position: absolute;
+  top: 34%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 46vw;
+  display: flex;
+  justify-content: space-between;
+  opacity: 0;
+  pointer-events: none;
+}
+
+#fx-scare.sc-on .sc-eyes { opacity: 1; animation: sc-flicker 0.12s steps(2, end) infinite; }
+
+.sc-eye {
+  width: 12vw;
+  height: 6vw;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 50%, #fff 0%, #ff2d2d 35%, rgba(150, 0, 0, 0.9) 60%, rgba(90, 0, 0, 0.2) 100%);
+  box-shadow: 0 0 60px 26px rgba(255, 0, 0, 0.6);
+}
+
+@keyframes sc-flicker {
+  0% { opacity: 1; }
+  50% { opacity: 0.72; }
+  100% { opacity: 0.95; }
+}
+
+.sc-flash {
+  position: absolute;
+  inset: 0;
+  background: #fff;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.sc-flash.sc-hit { animation: sc-flash 0.34s ease-out 1; }
+
+@keyframes sc-flash {
+  0% { opacity: 0.95; }
+  100% { opacity: 0; }
+}
+
+.sc-text {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 9vh;
+  text-align: center;
+  font: 900 clamp(22px, 4.4vw, 64px) / 1 "Segoe UI", sans-serif;
+  letter-spacing: 0.22em;
+  color: #ff2d2d;
+  text-shadow: 0 0 24px rgba(255, 0, 0, 0.95), 0 0 60px rgba(120, 0, 0, 0.8);
+  opacity: 0;
+}
+
+#fx-scare.sc-on .sc-text { opacity: 1; animation: sc-flicker 0.16s steps(2, end) infinite; }
+
+/* =====================================================================
+   BLACKOUT
+   ===================================================================== */
+
+#fx-black { background: #000; }
+
+.bk-fill {
+  position: absolute;
+  inset: 0;
+  background: #000;
+  transition: opacity 0.35s ease-out;
+}
+
+.bk-noise {
+  position: absolute;
+  inset: 0;
+  opacity: 0.05;
+  background: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='m'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23m)'/%3E%3C/svg%3E");
+  animation: bk-noise 0.35s steps(3, end) infinite;
+}
+
+@keyframes bk-noise {
+  0% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(-9px, 6px, 0); }
+  100% { transform: translate3d(7px, -8px, 0); }
+}
+
+.bk-face {
+  position: absolute;
+  right: 5vw;
+  bottom: 6vh;
+  font-size: 74px;
+  line-height: 1;
+  color: #7a0d18;
+  text-shadow: 0 0 26px rgba(255, 0, 0, 0.35);
+  opacity: 0;
+}
+
+#fx-black.bk-creep .bk-face { opacity: 0.9; animation: bk-blink 2.2s steps(1, end) infinite; }
+
+@keyframes bk-blink {
+  0%, 86% { opacity: 0; }
+  88%, 100% { opacity: 0.9; }
+}
+
+.bk-hint {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 6vh;
+  text-align: center;
+  font: 600 15px / 1.5 "Segoe UI", sans-serif;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.22);
+  opacity: 0;
+}
+
+#fx-black.bk-creep .bk-hint { opacity: 1; }
+
+/* =====================================================================
+   FAKE SHUTDOWN
+   ===================================================================== */
+
+#fx-fakesd { background: #000; }
+
+.sd-fill { position: absolute; inset: 0; background: #05060a; }
+
+.sd-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  color: #dfe6f2;
+}
+
+.sd-spinner {
+  width: 62px;
+  height: 62px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.14);
+  border-top-color: #6ea8ff;
+  animation: sd-spin 0.85s linear infinite;
+}
+
+@keyframes sd-spin { to { transform: rotate(360deg); } }
+
+.sd-text { font: 400 30px / 1.2 "Segoe UI", sans-serif; }
+.sd-sub { font: 300 15px / 1.2 "Segoe UI", sans-serif; color: rgba(223, 230, 242, 0.62); }
+
+.sd-sub.sd-error { color: #ffb3b3; }
+
+/* =====================================================================
+   FAKE BSOD
+   ===================================================================== */
+
+#fx-bsod { background: #0a4ea8; }
+
+.bs-fill { position: absolute; inset: 0; background: #0a4ea8; }
+
+.bs-haunt {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 0 6vw;
+}
+
+.bs-classic {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 0 14vw;
+  gap: 3vh;
+}
+
+.bs-sad {
+  font: 300 22vh/1 "Segoe UI", sans-serif;
+  color: #fff;
+}
+
+.bs-line {
+  font: 400 3.6vh/1.5 "Segoe UI", sans-serif;
+  color: #fff;
+  max-width: 62vw;
+}
+
+.bs-inner {
+  position: absolute;
+  inset: 0;
+  padding: 9vh 9vw;
+  color: #fff;
+  font-family: "Segoe UI", sans-serif;
+}
+
+.bs-face {
+  font-size: clamp(64px, 11vh, 130px);
+  line-height: 1;
+  font-weight: 300;
+  margin-bottom: 3.4vh;
+}
+
+.bs-main {
+  font-size: clamp(16px, 2.5vh, 26px);
+  line-height: 1.42;
+  max-width: 74ch;
+  font-weight: 300;
+}
+
+.bs-progress {
+  margin-top: 3.2vh;
+  font-size: clamp(15px, 2.2vh, 24px);
+  font-weight: 300;
+}
+
+.bs-block {
+  position: absolute;
+  left: 9vw;
+  right: 9vw;
+  bottom: 9vh;
+  display: flex;
+  gap: 2.4vw;
+  align-items: flex-start;
+}
+
+.bs-qr {
+  width: 104px;
+  height: 104px;
+  flex: 0 0 auto;
+  background:
+    repeating-conic-gradient(#fff 0% 25%, #0a4ea8 0% 50%) 0 0 / 13px 13px;
+  box-shadow: 0 0 0 6px #fff;
+}
+
+.bs-meta { font-size: clamp(13px, 1.9vh, 18px); line-height: 1.5; font-weight: 300; }
+.bs-code, .bs-what { margin-top: 8px; }
+.bs-code span, .bs-what span { font-weight: 400; }
+
+/* =====================================================================
+   REAL SHUTDOWN COUNTDOWN
+   ===================================================================== */
+
+#fx-realsd { background: rgba(0, 0, 0, 0.94); }
+
+.rs-fill {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(4, 6, 14, 0.98), rgba(12, 6, 10, 0.98));
+}
+
+.rs-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  text-align: center;
+  color: #f2f4f8;
+}
+
+.rs-title { font: 300 26px / 1.2 "Segoe UI", sans-serif; letter-spacing: 0.04em; }
+
+.rs-count {
+  font: 200 clamp(96px, 22vh, 260px) / 0.95 "Segoe UI", sans-serif;
+  color: #ff5d6c;
+  text-shadow: 0 0 60px rgba(255, 40, 60, 0.55);
+  animation: rs-pulse 1s ease-in-out infinite;
+}
+
+@keyframes rs-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.045); opacity: 0.88; }
+}
+
+.rs-sub { font: 400 17px / 1.5 "Segoe UI", sans-serif; color: rgba(242, 244, 248, 0.75); }
+
+.rs-btn {
+  margin-top: 10px;
+  padding: 12px 26px;
+  font: 600 16px "Segoe UI", sans-serif;
+  color: #fff;
+  background: #c0293a;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.rs-btn:hover { background: #d53a4b; }
+
+.rs-note {
+  margin-top: 16px;
+  font: 400 14px / 1.5 "Segoe UI", sans-serif;
+  color: #ffc7a8;
+  max-width: 70ch;
+}
+
+.rs-note.rs-ok { color: #9ee6b0; }

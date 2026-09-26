@@ -1,0 +1,524 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: transparent;
+  user-select: none;
+  -webkit-app-region: no-drag;
+}
+
+#pet-root {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  overflow: visible;
+}
+
+#rps-bar {
+  position: absolute;
+  top: calc(var(--speech-zone-top, 8px) + var(--speech-zone-height, 68px) + 6px);
+  left: 0;
+  right: 0;
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  z-index: 101;
+}
+
+#rps-bar[hidden] {
+  display: none;
+}
+
+/* Prank glitch visuals: violent flicker + color corruption + root shake. */
+#pet.prank-glitching #pet-sprite {
+  animation: prank-flicker 0.22s steps(2) infinite;
+}
+
+#pet.prank-glitching #pet-area {
+  filter: hue-rotate(90deg) saturate(3) contrast(1.5);
+}
+
+@keyframes prank-flicker {
+  0% { opacity: 1; transform: translate(0, 0); }
+  25% { opacity: 0.2; transform: translate(-6px, 3px) skewX(5deg); }
+  50% { opacity: 1; transform: translate(5px, -4px); }
+  75% { opacity: 0.4; transform: translate(-3px, -2px) skewX(-7deg); }
+  100% { opacity: 1; transform: translate(0, 0); }
+}
+
+#pet-root.prank-shake {
+  animation: prank-root-shake 0.3s linear infinite;
+}
+
+@keyframes prank-root-shake {
+  0%, 100% { transform: translate(0, 0); }
+  25% { transform: translate(-5px, 2px); }
+  50% { transform: translate(4px, -3px); }
+  75% { transform: translate(-2px, -2px); }
+}
+
+.rps-btn {
+  font-size: 26px;
+  line-height: 1;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 2px solid var(--speech-border, rgba(255, 143, 171, 0.6));
+  background: var(--speech-bg, #fff);
+  box-shadow: 0 3px 12px rgba(0,0,0,0.22);
+  cursor: pointer;
+  padding: 0;
+}
+
+.rps-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.rps-btn:not(:disabled):hover {
+  transform: scale(1.12);
+}
+
+#rps-picks {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+#rps-picks[hidden] {
+  display: none;
+}
+
+#rps-vs {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
+}
+
+#rps-vs[hidden] {
+  display: none;
+}
+
+.rps-card {
+  font-size: 30px;
+  line-height: 1;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: var(--speech-bg, #fff);
+  border: 2px solid var(--speech-border, rgba(255, 143, 171, 0.6));
+  box-shadow: 0 3px 12px rgba(0,0,0,0.22);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rps-vs-label {
+  font-weight: 800;
+  font-size: 15px;
+  color: var(--speech-text, #2d3436);
+  text-shadow: 0 1px 6px rgba(0,0,0,0.35);
+}
+
+#rps-me.clash {
+  animation: clash-left 0.45s ease-in forwards;
+}
+
+#rps-pet.clash {
+  animation: clash-right 0.45s ease-in forwards;
+}
+
+@keyframes clash-left {
+  to { transform: translateX(26px) scale(1.15); }
+}
+
+@keyframes clash-right {
+  to { transform: translateX(-26px) scale(1.15); }
+}
+
+#rps-bar.impact {
+  animation: rps-shake 0.35s;
+}
+
+@keyframes rps-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  50% { transform: translateX(4px); }
+  75% { transform: translateX(-3px); }
+}
+
+.rps-card.rps-winner {
+  border-color: gold;
+  box-shadow: 0 0 14px gold;
+}
+
+.rps-card.rps-loser {
+  opacity: 0.55;
+  filter: grayscale(0.6);
+}
+
+
+
+#speech-zone {
+  position: absolute;
+  top: var(--speech-zone-top, 8px);
+  left: calc(50% + var(--speech-zone-left, 0px));
+  width: var(--speech-zone-width, 180px);
+  height: var(--speech-zone-height, 56px);
+  transform: translateX(-50%);
+  z-index: 100;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: width 0.15s ease, height 0.15s ease;
+}
+
+#speech-hitbox {
+  position: absolute;
+  inset: 0;
+  border: 2px dashed transparent;
+  border-radius: 14px;
+  pointer-events: none;
+  z-index: 0;
+  box-sizing: border-box;
+}
+
+#speech-hitbox.show-indicator {
+  border-color: rgba(116, 185, 255, 0.95);
+  background: rgba(116, 185, 255, 0.1);
+}
+
+#speech-hitbox.show-indicator::after {
+  content: 'text bubble zone';
+  position: absolute;
+  bottom: -14px;
+  left: 50%;
+  transform: translateX(-50%);
+  font: 9px 'Segoe UI', sans-serif;
+  color: #0984e3;
+  white-space: nowrap;
+}
+
+.speech {
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  background: var(--speech-bg, #fff);
+  border-radius: 14px;
+  padding: 8px 12px;
+  font: 13px/1.35 'Segoe UI', system-ui, sans-serif;
+  color: var(--speech-text, #2d3436);
+  text-align: center;
+  white-space: normal;
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
+  box-shadow: 0 3px 12px rgba(0,0,0,0.18);
+  border: 1px solid var(--speech-border, rgba(255, 143, 171, 0.35));
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease;
+}
+
+.speech.show {
+  opacity: 1;
+  visibility: visible;
+}
+
+.speech b, .speech strong { font-weight: 700; }
+.speech i, .speech em { font-style: italic; }
+.speech u { text-decoration: underline; }
+.speech s { text-decoration: line-through; }
+
+#pet-area {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 1;
+}
+
+#pet-root.is-grabbing #pet-area {
+  overflow: visible;
+}
+
+#body-hitbox {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 2px dashed transparent;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 8;
+  box-sizing: border-box;
+}
+
+#body-hitbox.show-indicator {
+  border-color: rgba(85, 239, 196, 0.95);
+  background: rgba(85, 239, 196, 0.14);
+  box-shadow: inset 0 0 0 1px rgba(85, 239, 196, 0.35);
+}
+
+#body-hitbox.show-indicator::after {
+  content: 'character cylinder';
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  transform: translateX(-50%);
+  font: 9px 'Segoe UI', sans-serif;
+  color: #00b894;
+  white-space: nowrap;
+}
+
+#pet {
+  position: relative;
+  transform-origin: center bottom;
+  max-width: 100%;
+  flex-shrink: 0;
+}
+
+#pet-root.is-grabbing #pet {
+  max-height: none;
+}
+
+#pet-svg {
+  display: block;
+  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.15));
+}
+
+.pet-sprite {
+  display: block;
+  position: relative;
+  line-height: 0;
+  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.15));
+}
+
+.pet-sprite.hidden { display: none; }
+
+#pet-fallback {
+  display: none;
+  width: calc(90px * var(--pet-scale, 1));
+  height: calc(90px * var(--pet-scale, 1));
+  border-radius: 50%;
+  border: 3px dashed rgba(255, 143, 171, 0.8);
+  background: rgba(255, 255, 255, 0.25);
+  animation: fallback-pulse 1.6s ease-in-out infinite;
+}
+
+#pet-fallback.show { display: block; }
+
+@keyframes fallback-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.7; }
+  50% { transform: scale(1.06); opacity: 1; }
+}
+
+#sprite-img {
+  display: block;
+  width: calc(120px * var(--pet-scale, 1));
+  height: auto;
+  max-height: none;
+  object-fit: contain;
+  object-position: bottom center;
+  pointer-events: none;
+  vertical-align: bottom;
+}
+
+#pet.use-custom-avatar #pet-svg { display: none; }
+#pet.use-custom-avatar .pet-sprite { display: block; }
+#pet.use-custom-avatar .pet-sprite.hidden { display: none; }
+
+.body { fill: var(--body-color, #ffb6c1); }
+.belly { fill: #fff; }
+.head { fill: var(--body-color, #ffb6c1); }
+.ear { fill: var(--ear-color, #ff8fab); }
+.cheek { fill: var(--cheek-color, #ff6b81); }
+.eye { fill: #fff; }
+.pupil { fill: var(--eye-color, #2d3436); }
+.paw { fill: var(--ear-color, #ff8fab); }
+.shadow { fill: rgba(0,0,0,0.12); }
+
+#head-hitbox {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 70px;
+  height: 55px;
+  border-radius: 50%;
+  z-index: 20;
+  pointer-events: none;
+  border: 2px dashed transparent;
+  background: transparent;
+}
+
+#head-hitbox.show-indicator {
+  border-color: rgba(255, 105, 180, 0.95);
+  background: rgba(255, 182, 193, 0.25);
+}
+
+#head-hitbox.show-indicator::after {
+  content: 'pet zone';
+  position: absolute;
+  bottom: -16px;
+  left: 50%;
+  transform: translateX(-50%);
+  font: 9px 'Segoe UI', sans-serif;
+  color: #ff6b81;
+  white-space: nowrap;
+}
+
+#pet-interact {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 15;
+  cursor: grab;
+  box-sizing: border-box;
+  border-radius: 50%;
+}
+
+#pet.state-grab #pet-interact { cursor: grabbing; }
+
+#pet.state-grab:not(.use-custom-avatar) {
+  filter: drop-shadow(0 8px 12px rgba(0,0,0,0.2));
+  transform: translateY(-5px);
+}
+
+#pet.state-grab.use-custom-avatar {
+  filter: drop-shadow(0 8px 12px rgba(0,0,0,0.2));
+}
+
+#pet.state-grab.facing-left:not(.use-custom-avatar) #pet-svg {
+  transform: scaleX(-1);
+}
+
+#pet.use-custom-avatar.sprite-flipped .pet-sprite {
+  transform: scaleX(-1);
+}
+
+#pet.state-grab.use-custom-avatar.sprite-flipped .pet-sprite {
+  transform: scaleX(-1) translateY(-5px);
+}
+
+#pet.state-grab.use-custom-avatar:not(.sprite-flipped) .pet-sprite {
+  transform: translateY(-5px);
+}
+
+#pet.state-dance #body-group,
+#pet.state-dance #sprite-img {
+  animation: dance-subtle 0.42s ease-in-out infinite;
+}
+
+@keyframes dance-subtle {
+  0%, 100% { transform: translateY(0) scale(1); }
+  25% { transform: translateY(-4px) scale(1.02); }
+  50% { transform: translateY(-2px) scale(1.01); }
+  75% { transform: translateY(-5px) scale(1.03); }
+}
+
+/* Beat hop: retriggered from JS on every detected beat while dancing.
+   --beat-dur follows the song's tempo (fast music = fast hops),
+   --beat-amp follows loudness. Lives on the sprite wrapper so it composes
+   with the inner dance-subtle sway instead of replacing it. */
+#pet-sprite.beat-hop {
+  animation: beat-hop var(--beat-dur, 380ms) ease-out;
+}
+
+@keyframes beat-hop {
+  0% { transform: translateY(0) scale(1, 1); }
+  30% { transform: translateY(calc(-14px * var(--beat-amp, 1))) scale(0.96, 1.06); }
+  60% { transform: translateY(0) scale(1.04, 0.94); }
+  100% { transform: translateY(0) scale(1, 1); }
+}
+
+#pet.state-chase #body-group { animation: bounce 0.4s ease infinite; }
+#pet.state-attack { animation: lunge-contained 0.25s ease; }
+#pet.state-attack #attack-fx { opacity: 1; }
+#pet.state-pet #body-group { animation: wiggle 0.5s ease infinite; }
+
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+
+@keyframes lunge-contained {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.08) translateY(-5px); }
+  100% { transform: scale(1); }
+}
+
+@keyframes wiggle {
+  0%, 100% { transform: rotate(-2deg); }
+  50% { transform: rotate(2deg); }
+}
+
+#pet.state-sleep #body-group,
+#pet.state-sleep #head-group,
+#pet.state-sleep.use-custom-avatar .pet-sprite {
+  animation: sleep-breathe 2.4s ease-in-out infinite;
+}
+
+#pet.state-sleep .eye,
+#pet.state-sleep .pupil {
+  opacity: 0.25;
+}
+
+#pet.state-sit #body-group {
+  transform: scaleY(0.9) translateY(6px);
+}
+
+#pet.state-sit #head-group {
+  transform: translateY(4px);
+}
+
+#pet.state-sit.use-custom-avatar:not(.sprite-flipped) .pet-sprite {
+  transform: scaleY(0.92) translateY(8px);
+}
+
+#pet.state-sit.use-custom-avatar.sprite-flipped .pet-sprite {
+  transform: scaleX(-1) scaleY(0.92) translateY(8px);
+}
+
+#pet.state-shuffle #body-group {
+  animation: bounce 0.45s ease infinite;
+}
+
+#pet.show-defeat.use-custom-avatar .pet-sprite {
+  animation: defeat-droop 1.4s ease-in-out infinite;
+}
+
+@keyframes defeat-droop {
+  0%, 100% { transform: translateY(0) scaleY(1); }
+  50% { transform: translateY(4px) scaleY(0.97); }
+}
+
+@keyframes sleep-breathe {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(2px); }
+}
+
+html.low-impact #pet.state-chase #body-group,
+html.low-impact #pet.state-pet #body-group,
+html.low-impact #pet.state-sleep #body-group,
+html.low-impact #pet.state-sleep #head-group,
+html.low-impact #pet.state-shuffle #body-group {
+  animation: none !important;
+}
+
+html.low-impact #speech-zone {
+  transition: none;
+}
+
+#pet:not(.use-custom-avatar).facing-left:not(.state-dance):not(.state-grab) { transform: scaleX(-1); }
+
+#pet.use-custom-avatar:not(.sprite-flipped):not(.state-dance):not(.state-grab) {
+  transform: none;
+}

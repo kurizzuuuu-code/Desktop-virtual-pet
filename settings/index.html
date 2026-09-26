@@ -1,0 +1,1065 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Virtual Pet Settings</title>
+  <link rel="stylesheet" href="settings.css">
+  <script>
+    try {
+      var t = localStorage.getItem('vp-theme') || 'pink';
+      if (['pink', 'purple', 'dark', 'light'].indexOf(t) === -1) t = 'pink';
+      document.documentElement.dataset.theme = t;
+    } catch (e) {}
+  </script>
+</head>
+<body>
+  <div class="settings-shell">
+    <div class="edge-strip" aria-hidden="true"><i></i><i></i><i></i></div>
+    <div class="app-card">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-mark">🐾</div>
+        <div>
+          <h1>Virtual Pet</h1>
+          <p>Settings console</p>
+        </div>
+      </div>
+      <div class="profile-card">
+        <div class="profile-avatar" id="profilePetAvatar">M</div>
+        <div class="profile-meta">
+          <h2 id="profilePetName">Mochi</h2>
+          <p id="profilePetMood">happy</p>
+        </div>
+        <span class="profile-dot" id="profilePetDot"></span>
+      </div>
+      <nav class="side-nav" id="settingsNav" aria-label="Settings sections">
+        <button type="button" class="nav-btn active" data-panel="panel-app"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10l9-7 9 7v10a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg></span><span class="nav-label">App</span></button>
+        <button type="button" class="nav-btn" data-panel="panel-character"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.4"/><path d="M5.5 19.5c1.2-3.4 3.7-5.1 6.5-5.1s5.3 1.7 6.5 5.1"/></svg></span><span class="nav-label">Character</span></button>
+        <button type="button" class="nav-btn" data-panel="panel-behavior"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/></svg></span><span class="nav-label">Behavior</span></button>
+        <button type="button" class="nav-btn" data-panel="panel-speech"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span><span class="nav-label">Speech</span></button>
+        <button type="button" class="nav-btn" data-panel="panel-voice"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/></svg></span><span class="nav-label">Voice</span></button>
+        <button type="button" class="nav-btn" data-panel="panel-games"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="7" width="19" height="10" rx="5"/><path d="M8 10.5v3M6.5 12h3"/><circle cx="15.5" cy="11" r="1" fill="currentColor" stroke="none"/><circle cx="17.5" cy="13.5" r="1" fill="currentColor" stroke="none"/></svg></span><span class="nav-label">Games</span></button>
+        <button type="button" class="nav-btn" data-panel="panel-dance"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V6l10-2v11"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="15" r="2.5"/></svg></span><span class="nav-label">Music &amp; dance</span></button>
+        <button type="button" class="nav-btn" data-panel="panel-chaos"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg></span><span class="nav-label">Chaos</span></button>
+      </nav>
+      <div class="sidebar-pets">
+        <p class="sidebar-pets-label">Your pets</p>
+        <div id="petList" class="pet-list"></div>
+        <button type="button" id="addPet" class="btn-add-pet">+ Add pet</button>
+      </div>
+      <p class="made-by">Made by Kurizu</p>
+    </aside>
+
+    <div class="main-column">
+      <div class="titlebar">
+        <span class="titlebar-title">Virtual Pet Settings</span>
+        <div class="titlebar-btns">
+          <button type="button" id="winMin" title="Minimize">–</button>
+          <button type="button" id="winMax" title="Maximize">▢</button>
+          <button type="button" id="winClose" class="danger" title="Close">✕</button>
+        </div>
+      </div>
+      <header class="content-header">
+        <div class="header-titles">
+          <p class="greeting" id="dashGreeting">Good evening</p>
+          <h2 id="panelTitle">App</h2>
+          <p id="panelSubtitle" class="content-sub">Power, appearance, pets, and window options.</p>
+        </div>
+        <div class="status-pills">
+          <span class="pill" id="pillPower"><i></i>Pet</span>
+          <span class="pill" id="pillAi"><i></i>AI</span>
+          <span class="pill" id="pillVoice"><i></i>Voice</span>
+        </div>
+      </header>
+      <div class="panels-scroll">
+        <div id="panel-app" class="panel active">
+    <section id="tutorialCard" class="tutorial-card" hidden>
+      <h2 id="tutorialStepTitle">Welcome! 🐾</h2>
+      <p class="section-desc" id="tutorialStepText"></p>
+      <div class="tutorial-actions">
+        <button type="button" id="tutorialBack" class="btn-secondary btn-small">Back</button>
+        <button type="button" id="tutorialCta" class="btn-secondary btn-small" hidden></button>
+        <button type="button" id="tutorialNext" class="btn-secondary btn-small">Next</button>
+        <button type="button" id="tutorialSkip" class="btn-secondary btn-small">Skip tour</button>
+      </div>
+      <p class="meter-hint" id="tutorialStepCount"></p>
+    </section>
+    <section class="power-section">
+      <h2>Pet on / off</h2>
+      <p class="section-desc">When OFF, the pet is hidden and does nothing. The tray icon stays until you exit the app.</p>
+      <button type="button" id="petPowerBtn" class="btn-power off">Turn pet ON</button>
+      <p class="power-status" id="petPowerStatus">Pet is OFF</p>
+      <label class="check">
+        <input type="checkbox" id="launchOnStartup">
+        Start app when Windows starts (pet still starts OFF unless you turn it on)
+      </label>
+      <button type="button" id="exitApp" class="btn-exit">Exit app completely</button>
+    </section>
+
+    <section>
+      <h2>Appearance</h2>
+      <p class="section-desc">Color theme for this settings window.</p>
+      <div class="theme-row" id="themeRow" role="group" aria-label="Color theme">
+        <button type="button" class="theme-swatch" data-theme="pink" title="Pink"><span class="swatch-dot swatch-pink"></span>Pink</button>
+        <button type="button" class="theme-swatch" data-theme="purple" title="Purple"><span class="swatch-dot swatch-purple"></span>Purple</button>
+        <button type="button" class="theme-swatch" data-theme="dark" title="Black"><span class="swatch-dot swatch-dark"></span>Black</button>
+        <button type="button" class="theme-swatch" data-theme="light" title="White"><span class="swatch-dot swatch-light"></span>White</button>
+      </div>
+    </section>
+
+    <section>
+      <h2>Multiple pets</h2>
+      <p class="section-desc">Select a pet on the left. Up to 6 pets — each with their own look.</p>
+      <label class="check">
+        <input type="checkbox" id="multiPetInteractions" checked>
+        Pets interact with each other (greet &amp; walk over)
+      </label>
+      <label class="range-label">
+        Space between pets <span id="petCollisionGapVal">20</span>px
+        <input type="range" id="petCollisionGap" min="0" max="80" step="4">
+      </label>
+      <button type="button" id="testTag" class="btn-secondary btn-small">Test tag game (needs 2+ pets)</button>
+      <p class="section-desc">Tagger counts 1-2-3, then the other pet runs away and the tagger chases.</p>
+      <button type="button" id="testGift" class="btn-secondary btn-small">Test gift (needs 2+ pets)</button>
+      <p class="section-desc">Active pet walks over and hands a gift to another pet. Naturally happens when pets are reasonably close.</p>
+      <h3 class="sub-heading">Friendships</h3>
+      <p class="section-desc">How close each pair is. Pets grow closer by greeting, chatting, gifts, and tag — best friends at 70.</p>
+      <div id="bondList"></div>
+      <button type="button" id="refreshBonds" class="btn-secondary btn-small">Refresh</button>
+      <h3 class="sub-heading">Records</h3>
+      <p class="section-desc">Total victories and defeats witnessed per pet.</p>
+      <div id="recordList"></div>
+    </section>
+
+    <section>
+      <h2>Window</h2>
+      <label class="check">
+        <input type="checkbox" id="alwaysOnTop" checked>
+        Always on top
+      </label>
+      <label class="check">
+        <input type="checkbox" id="gameLowImpactEnabled" checked>
+        Game performance mode (8 FPS overlay, frozen pets while gaming)
+      </label>
+      <label class="check">
+        <input type="checkbox" id="hidePetsWhileGaming">
+        Hide pets while a game is focused (best for stutter / input feel)
+      </label>
+      <p class="section-desc">Transparent overlays can make games feel laggy even when FPS looks fine. Only enable “hide pets” if you want them gone — performance mode keeps them visible (slower animation).</p>
+      <label class="check">
+        <input type="checkbox" id="showSettingsOnStart">
+        Open settings on launch
+      </label>
+    </section>
+
+    <section>
+      <h2>Companion remote (phone)</h2>
+      <p class="section-desc">Control the pets from your phone's browser over home Wi-Fi. Nothing leaves your house — a token guards it. First run triggers a Windows firewall prompt; allow it on private networks.</p>
+      <label class="check">
+        <input type="checkbox" id="remoteEnabled">
+        Enable remote server
+      </label>
+      <label class="speech-field">
+        Port
+        <input type="text" id="remotePort" inputmode="numeric" maxlength="5" placeholder="3535">
+      </label>
+      <label class="speech-field">
+        Token (type this once on the phone)
+        <input type="text" id="remoteToken" autocomplete="off" placeholder="Set automatically on first enable">
+      </label>
+      <button type="button" id="regenRemoteToken" class="btn-secondary btn-small">New token</button>
+      <p class="meter-hint" id="remoteStatus" aria-live="polite"></p>
+    </section>
+
+    <section>
+      <h2>Danger zone</h2>
+      <p class="section-desc">Reset wipes everything back to defaults — a backup is saved first so it can be undone below.</p>
+      <button type="button" id="resetDefaults" class="btn-exit">Reset defaults</button>
+      <button type="button" id="restoreBackup" class="btn-secondary btn-small">Restore backup</button>
+    </section>
+        </div>
+
+        <div id="panel-character" class="panel">
+    <section>
+      <h2>Identity</h2>
+      <label class="check">
+        <input type="checkbox" id="petIndividualEnabled" checked>
+        Show this pet on desktop
+      </label>
+      <label>
+        Pet name
+        <input type="text" id="name" maxlength="20" placeholder="Mochi">
+      </label>
+    </section>
+
+    <section>
+      <h2>Character pack</h2>
+      <p class="section-desc">One click dresses her head to toe — or pick files one by one below for a custom mix.</p>
+      <label class="speech-field">
+        Pack
+        <select id="characterPack"></select>
+      </label>
+      <button type="button" id="openPacksFolder" class="btn-secondary btn-small">Open packs folder</button>
+      <p class="section-desc">Drop your own art in the packs folder (one folder per character, idle.gif required) — it appears in this list.</p>
+      <h3 class="sub-heading">Save current look as a character</h3>
+      <p class="section-desc">Name her, and everything above becomes a reusable character card.</p>
+      <div class="save-pack-row">
+        <input type="text" id="newPackName" maxlength="32" placeholder="Character name">
+        <button type="button" id="savePackBtn" class="btn-secondary btn-small">Save character</button>
+      </div>
+      <button type="button" id="openCharacterSelect" class="btn-secondary btn-small">Choose character…</button>
+    </section>
+
+    <section class="avatar-section">
+      <h2>Custom GIF avatar</h2>
+      <p class="section-desc">Use your own GIFs for each action. PNG/WebP also work. Idle is required and can't be cleared.</p>
+      <label class="check">
+        <input type="checkbox" id="useCustomAvatar">
+        Use custom avatar (hide default pet)
+      </label>
+      <label class="check">
+        <input type="checkbox" id="invertSpriteFacing" checked>
+        Flip sprite when walking right (for left-facing GIFs; turn off if your GIF already faces right)
+      </label>
+
+      <div class="gif-slot" data-slot="idle">
+        <div class="gif-slot-head">
+          <strong>Idle</strong> <span class="gif-hint">not moving</span>
+        </div>
+        <div class="gif-slot-actions">
+          <button type="button" class="btn-pick-gif">Choose file</button>
+          <button type="button" class="btn-clear-gif">Clear</button>
+        </div>
+        <img class="gif-preview" id="previewIdle" alt="Idle preview">
+        <span class="gif-filename" id="nameIdle">None</span>
+      </div>
+
+      <div class="gif-slot" data-slot="move">
+        <div class="gif-slot-head">
+          <strong>Moving</strong> <span class="gif-hint">walking / chasing</span>
+        </div>
+        <div class="gif-slot-actions">
+          <button type="button" class="btn-pick-gif">Choose file</button>
+          <button type="button" class="btn-clear-gif">Clear</button>
+        </div>
+        <img class="gif-preview" id="previewMove" alt="Move preview">
+        <span class="gif-filename" id="nameMove">None (uses idle)</span>
+      </div>
+
+      <div class="gif-slot" data-slot="attack">
+        <div class="gif-slot-head">
+          <strong>Attack</strong> <span class="gif-hint">cursor pounce</span>
+        </div>
+        <div class="gif-slot-actions">
+          <button type="button" class="btn-pick-gif">Choose file</button>
+          <button type="button" class="btn-clear-gif">Clear</button>
+        </div>
+        <img class="gif-preview" id="previewAttack" alt="Attack preview">
+        <span class="gif-filename" id="nameAttack">None</span>
+      </div>
+
+      <div class="gif-slot" data-slot="pet">
+        <div class="gif-slot-head">
+          <strong>Pet / happy</strong> <span class="gif-hint">head hover (optional)</span>
+        </div>
+        <div class="gif-slot-actions">
+          <button type="button" class="btn-pick-gif">Choose file</button>
+          <button type="button" class="btn-clear-gif">Clear</button>
+        </div>
+        <img class="gif-preview" id="previewPet" alt="Pet preview">
+        <span class="gif-filename" id="namePet">None (uses idle)</span>
+      </div>
+
+      <div class="gif-slot" data-slot="grab">
+        <div class="gif-slot-head">
+          <strong>Grab</strong> <span class="gif-hint">hold grab button &amp; drag</span>
+        </div>
+        <div class="gif-slot-actions">
+          <button type="button" class="btn-pick-gif">Choose file</button>
+          <button type="button" class="btn-clear-gif">Clear</button>
+        </div>
+        <img class="gif-preview" id="previewGrab" alt="Grab preview">
+        <span class="gif-filename" id="nameGrab">None (uses move)</span>
+      </div>
+
+      <div class="gif-slot" data-slot="dance">
+        <div class="gif-slot-head">
+          <strong>Dance</strong> <span class="gif-hint">when music/bass detected</span>
+        </div>
+        <div class="gif-slot-actions">
+          <button type="button" class="btn-pick-gif">Choose file</button>
+          <button type="button" class="btn-clear-gif">Clear</button>
+        </div>
+        <img class="gif-preview" id="previewDance" alt="Dance preview">
+        <span class="gif-filename" id="nameDance">None (uses move)</span>
+      </div>
+
+      <div class="gif-slot" data-slot="sleep">
+        <div class="gif-slot-head">
+          <strong>Sleep</strong> <span class="gif-hint">idle nap animation</span>
+        </div>
+        <div class="gif-slot-actions">
+          <button type="button" class="btn-pick-gif">Choose file</button>
+          <button type="button" class="btn-clear-gif">Clear</button>
+        </div>
+        <img class="gif-preview" id="previewSleep" alt="Sleep preview">
+        <span class="gif-filename" id="nameSleep">None (uses idle)</span>
+      </div>
+
+      <div class="gif-slot" data-slot="sit">
+        <div class="gif-slot-head">
+          <strong>Sit</strong> <span class="gif-hint">idle sitting animation</span>
+        </div>
+        <div class="gif-slot-actions">
+          <button type="button" class="btn-pick-gif">Choose file</button>
+          <button type="button" class="btn-clear-gif">Clear</button>
+        </div>
+        <img class="gif-preview" id="previewSit" alt="Sit preview">
+        <span class="gif-filename" id="nameSit">None (uses idle)</span>
+      </div>
+
+      <div class="gif-slot" data-slot="victory">
+        <div class="gif-slot-head">
+          <strong>Victory</strong> <span class="gif-hint">game win cheer (optional)</span>
+        </div>
+        <div class="gif-slot-actions">
+          <button type="button" class="btn-pick-gif">Choose file</button>
+          <button type="button" class="btn-clear-gif">Clear</button>
+        </div>
+        <img class="gif-preview" id="previewVictory" alt="Victory preview">
+        <span class="gif-filename" id="nameVictory">None (uses dance)</span>
+      </div>
+
+      <div class="gif-slot" data-slot="defeat">
+        <div class="gif-slot-head">
+          <strong>Defeat</strong> <span class="gif-hint">game over slump (optional)</span>
+        </div>
+        <div class="gif-slot-actions">
+          <button type="button" class="btn-pick-gif">Choose file</button>
+          <button type="button" class="btn-clear-gif">Clear</button>
+        </div>
+        <img class="gif-preview" id="previewDefeat" alt="Defeat preview">
+        <span class="gif-filename" id="nameDefeat">None (uses sit)</span>
+      </div>
+
+      <div class="gif-slot" data-slot="talk">
+        <div class="gif-slot-head">
+          <strong>Talking</strong> <span class="gif-hint">while speaking, idle only (optional)</span>
+        </div>
+        <div class="gif-slot-actions">
+          <button type="button" class="btn-pick-gif">Choose file</button>
+          <button type="button" class="btn-clear-gif">Clear</button>
+        </div>
+        <img class="gif-preview" id="previewTalk" alt="Talk preview">
+        <span class="gif-filename" id="nameTalk">None (uses pet)</span>
+      </div>
+
+      <div class="gif-slot" data-slot="greet">
+        <div class="gif-slot-head">
+          <strong>Greeting</strong> <span class="gif-hint">saying hi to another pet (optional)</span>
+        </div>
+        <div class="gif-slot-actions">
+          <button type="button" class="btn-pick-gif">Choose file</button>
+          <button type="button" class="btn-clear-gif">Clear</button>
+        </div>
+        <img class="gif-preview" id="previewGreet" alt="Greet preview">
+        <span class="gif-filename" id="nameGreet">None (uses pet)</span>
+      </div>
+
+      <div class="gif-slot" data-slot="giftGive">
+        <div class="gif-slot-head">
+          <strong>Giving gift</strong> <span class="gif-hint">handing a present over (optional)</span>
+        </div>
+        <div class="gif-slot-actions">
+          <button type="button" class="btn-pick-gif">Choose file</button>
+          <button type="button" class="btn-clear-gif">Clear</button>
+        </div>
+        <img class="gif-preview" id="previewGiftGive" alt="Give gift preview">
+        <span class="gif-filename" id="nameGiftGive">None (uses move)</span>
+      </div>
+
+      <div class="gif-slot" data-slot="giftReceive">
+        <div class="gif-slot-head">
+          <strong>Receiving gift</strong> <span class="gif-hint">getting a present (optional)</span>
+        </div>
+        <div class="gif-slot-actions">
+          <button type="button" class="btn-pick-gif">Choose file</button>
+          <button type="button" class="btn-clear-gif">Clear</button>
+        </div>
+        <img class="gif-preview" id="previewGiftReceive" alt="Receive gift preview">
+        <span class="gif-filename" id="nameGiftReceive">None (uses pet)</span>
+      </div>
+
+      <label class="range-label">
+        Attack animation length <span id="attackAnimMsVal">800</span>ms
+        <input type="range" id="attackAnimMs" min="300" max="3000" step="100">
+      </label>
+
+      <h3 class="sub-heading">Head pet zone (align for small avatars)</h3>
+      <label class="check">
+        <input type="checkbox" id="showHeadHitbox">
+        Show head zone on pet (pink outline)
+      </label>
+      <label class="range-label">
+        Top <span id="headHitTopVal">8</span>px
+        <input type="range" id="headHitTop" min="0" max="120" step="2">
+      </label>
+      <label class="range-label">
+        Left/right <span id="headHitLeftVal">0</span>px
+        <input type="range" id="headHitLeft" min="-80" max="80" step="2">
+      </label>
+      <label class="range-label">
+        Width <span id="headHitWidthVal">70</span>px
+        <input type="range" id="headHitWidth" min="20" max="160" step="2">
+      </label>
+      <label class="range-label">
+        Height <span id="headHitHeightVal">55</span>px
+        <input type="range" id="headHitHeight" min="20" max="120" step="2">
+      </label>
+    </section>
+
+    <section>
+      <h2>Size</h2>
+      <label class="range-label">
+        Size <span id="scaleVal">1.0</span>
+        <input type="range" id="scale" min="0.6" max="2.5" step="0.1">
+      </label>
+    </section>
+
+    <section>
+      <h2>Speech bubble &amp; zones</h2>
+      <p class="section-desc">How her text bubble looks and where her touch zones sit. The words themselves live in the Speech tab.</p>
+      <div class="color-grid speech-colors">
+        <label>Bubble bg <input type="color" id="speechBgColor"></label>
+        <label>Text <input type="color" id="speechTextColor"></label>
+        <label>Border <input type="color" id="speechBorderColor"></label>
+      </div>
+      <label class="range-label">
+        Text size <span id="speechFontSizeVal">13</span>px
+        <input type="range" id="speechFontSize" min="10" max="22" step="1">
+      </label>
+      <label class="speech-field">
+        Text alignment
+        <select id="speechAlign">
+          <option value="center">Center</option>
+          <option value="left">Left</option>
+          <option value="right">Right</option>
+        </select>
+      </label>
+      <label class="check">
+        <input type="checkbox" id="showSpeechZone">
+        Show fixed text zone (blue outline)
+      </label>
+      <label class="check">
+        <input type="checkbox" id="showBodyHitbox">
+        Show character zone (green outline)
+      </label>
+      <label class="range-label">
+        Top <span id="speechTopVal">8</span>px
+        <input type="range" id="speechTop" min="0" max="400" step="2">
+      </label>
+      <label class="range-label">
+        Left/right <span id="speechLeftVal">0</span>px
+        <input type="range" id="speechLeft" min="-100" max="100" step="2">
+      </label>
+      <label class="range-label">
+        Max width <span id="speechMaxWidthVal">180</span>px
+        <input type="range" id="speechMaxWidth" min="80" max="260" step="10">
+      </label>
+      <label class="range-label">
+        Zone width <span id="speechHitWidthVal">180</span>px
+        <input type="range" id="speechHitWidth" min="60" max="260" step="10">
+      </label>
+      <label class="range-label">
+        Zone height <span id="speechHitHeightVal">56</span>px
+        <input type="range" id="speechHitHeight" min="28" max="120" step="4">
+      </label>
+      <label class="range-label">
+        Reserved top space <span id="speechZoneHeightVal">72</span>px
+        <input type="range" id="speechZoneHeight" min="48" max="160" step="4">
+      </label>
+      <h3 class="sub-heading">Character cylinder zone (green oval)</h3>
+      <p class="section-desc">Green oval = body + grab zone. Align it over your character. Turn pet ON to preview.</p>
+      <label class="range-label">
+        Lift from bottom <span id="bodyHitTopVal">0</span>px
+        <input type="range" id="bodyHitTop" min="0" max="120" step="2">
+      </label>
+      <label class="range-label">
+        Left/right <span id="bodyHitLeftVal">0</span>px
+        <input type="range" id="bodyHitLeft" min="-80" max="80" step="2">
+      </label>
+      <label class="range-label">
+        Width <span id="bodyHitWidthVal">110</span>px
+        <input type="range" id="bodyHitWidth" min="40" max="220" step="4">
+      </label>
+      <label class="range-label">
+        Height <span id="bodyHitHeightVal">200</span>px
+        <input type="range" id="bodyHitHeight" min="80" max="260" step="4">
+      </label>
+    </section>
+        </div>
+
+        <div id="panel-behavior" class="panel">
+    <section>
+      <h2>Combat &amp; movement</h2>
+      <label class="check">
+        <input type="checkbox" id="attackEnabled">
+        Random attacks (pounces on her own — not tied to mouse)
+      </label>
+      <label class="range-label attack-only">
+        Attack frequency <span id="aggressionVal">40</span>%
+        <input type="range" id="aggression" min="0" max="1" step="0.1">
+      </label>
+      <label class="range-label">
+        Move speed <span id="moveSpeedVal">2.5</span>
+        <input type="range" id="moveSpeed" min="0.5" max="5" step="0.5">
+      </label>
+    </section>
+
+    <section>
+      <h2>Random walk timer</h2>
+      <p class="section-desc">Pet wanders randomly for this long, then rests.</p>
+      <div class="duration-row">
+        <input type="number" id="wanderDuration" min="1" max="999" value="30">
+        <select id="wanderDurationUnit">
+          <option value="sec">Seconds</option>
+          <option value="min">Minutes</option>
+        </select>
+      </div>
+      <button type="button" id="startWander" class="btn-wander">Start random walk</button>
+      <p class="timer-status" id="wanderStatus">Not walking</p>
+    </section>
+
+    <section>
+      <h2>Idle activities</h2>
+      <p class="section-desc">Like vpet — she sometimes sleeps, sits, or takes a small walk along the desktop floor when idle.</p>
+      <label class="check">
+        <input type="checkbox" id="idleSmallWalkEnabled" checked>
+        Small random walks (left/right shuffle)
+      </label>
+      <label class="check">
+        <input type="checkbox" id="idleSleepEnabled" checked>
+        Sometimes sleep when idle
+      </label>
+      <label class="check">
+        <input type="checkbox" id="idleSitEnabled" checked>
+        Sometimes sit when idle
+      </label>
+      <label class="range-label">
+        Activity chance <span id="idleVarietyChanceVal">35</span>%
+        <input type="range" id="idleVarietyChance" min="0.05" max="0.9" step="0.05">
+      </label>
+      <label class="range-label">
+        Time between activities <span id="smallWalkMinSecVal">3</span>–<span id="smallWalkMaxSecVal">12</span> sec
+      </label>
+      <div class="duration-row">
+        <input type="number" id="smallWalkMinSec" min="2" max="120" value="3">
+        <span class="duration-sep">to</span>
+        <input type="number" id="smallWalkMaxSec" min="4" max="180" value="12">
+        <span class="duration-sep">sec</span>
+      </div>
+    </section>
+        </div>
+
+        <div id="panel-speech" class="panel">
+    <section>
+      <h2>Custom speech bubbles</h2>
+      <p class="section-desc">One line per message — a random line is picked each time. Use <strong>{name}</strong> for your pet's name. Style with <strong>**bold**</strong>, <strong>*italic*</strong>, <strong>__underline__</strong>, <strong>~~strike~~</strong>. Leave blank to use built-in defaults. Sounds and voices for these lines live in the <strong>Voice</strong> tab.</p>
+      <label class="speech-field">
+        Idle chatter
+        <textarea id="textIdle" rows="4" placeholder="How's your day?&#10;Hmm... what are you doing?&#10;Pet my head~"></textarea>
+      </label>
+      <label class="speech-field">
+        Proactive fallback lines (used when AI is down)
+        <textarea id="textProactive" rows="3" placeholder="Hey! Just checking in~&#10;Whatcha up to?&#10;Don't forget to drink water~"></textarea>
+      </label>
+      <label class="speech-field">
+        Grabbed (hold to drag)
+        <textarea id="textGrab" rows="2" placeholder="Gotcha!&#10;Wheee~"></textarea>
+      </label>
+      <label class="speech-field">
+        Placed after drag
+        <textarea id="textGrabRelease" rows="2" placeholder="Placed!&#10;Oof~"></textarea>
+      </label>
+      <label class="speech-field">
+        Attacking
+        <textarea id="textAttack" rows="2" placeholder="Rawr!&#10;Hyah!"></textarea>
+      </label>
+      <label class="speech-field">
+        Being petted (head hover)
+        <textarea id="textPet" rows="2" placeholder="♡ {name} purrs...&#10;So warm~"></textarea>
+      </label>
+      <label class="speech-field">
+        Random walk start
+        <textarea id="textWalkStart" rows="2" placeholder="Walking around!"></textarea>
+      </label>
+      <label class="speech-field">
+        Random walk end
+        <textarea id="textWalkEnd" rows="2" placeholder="Time to rest~"></textarea>
+      </label>
+      <label class="speech-field">
+        Sleeping
+        <textarea id="textSleep" rows="2" placeholder="Zzz...&#10;*snore*"></textarea>
+      </label>
+      <label class="speech-field">
+        Sitting
+        <textarea id="textSit" rows="2" placeholder="*sits quietly*&#10;Comfy~"></textarea>
+      </label>
+      <label class="speech-field">
+        Dancing
+        <textarea id="textDance" rows="2" placeholder="🎵&#10;Dancing~"></textarea>
+      </label>
+      <label class="speech-field">
+        After closing an app (chaos mode)
+        <textarea id="textChaosClose" rows="2" placeholder="My bad hehe~&#10;Oopsie!"></textarea>
+      </label>
+      <label class="speech-field">
+        Meeting other pets
+        <textarea id="textSocial" rows="2" placeholder="Hi {friend}!&#10;Hey {friend}~"></textarea>
+      </label>
+      <label class="speech-field">
+        Bumping into each other
+        <textarea id="textBump" rows="2" placeholder="Oof!&#10;Hey {friend}!"></textarea>
+      </label>
+      <label class="speech-field">
+        Playing tag — chasing
+        <textarea id="textTagChase" rows="2" placeholder="Tag! You're it {friend}!&#10;I'm gonna get you {friend}!"></textarea>
+      </label>
+      <label class="speech-field">
+        Playing tag — gotcha (when caught)
+        <textarea id="textTagGotcha" rows="2" placeholder="Gotcha {friend}!&#10;You're it {friend}!"></textarea>
+      </label>
+      <label class="speech-field">
+        Victory cheer (winning a game)
+        <textarea id="textVictory" rows="2" placeholder="We won!!&#10;Victory~!"></textarea>
+      </label>
+      <label class="speech-field">
+        Giving a gift to another pet
+        <textarea id="textGift" rows="2" placeholder="For you {friend}! 🎁"></textarea>
+      </label>
+      <label class="speech-field">
+        Receiving a gift
+        <textarea id="textGiftThanks" rows="2" placeholder="Thank you {friend}! ♡"></textarea>
+      </label>
+    </section>
+
+    <section>
+      <h2>AI brain (optional)</h2>
+      <p class="section-desc">Chat answers come from her built-in brain by default. Add an API key to upgrade her to real AI for tricky questions (boss guides, builds). Free tier: Google AI Studio, model gemini-2.5-flash. Only manual chat messages use it — everything else stays free and offline.</p>
+      <label class="check">
+        <input type="checkbox" id="aiEnabled">
+        Use AI for chat replies
+      </label>
+      <label class="speech-field">
+        Provider
+        <select id="aiProvider">
+          <option value="custom">API (Gemini, Groq, OpenRouter…)</option>
+          <option value="ollama">Ollama (this PC, free forever)</option>
+        </select>
+      </label>
+      <label class="check">
+        <input type="checkbox" id="aiFallback" checked>
+        If the first choice fails, try the other automatically
+      </label>
+      <label class="speech-field">
+        Endpoint (OpenAI-compatible)
+        <textarea id="aiEndpoint" rows="1" placeholder="https://generativelanguage.googleapis.com/v1beta/openai"></textarea>
+      </label>
+      <label class="speech-field">
+        API key (stored only on this PC)
+        <input type="password" id="aiKey" autocomplete="off" placeholder="Paste key here">
+      </label>
+      <label class="speech-field">
+        Model
+        <input type="text" id="aiModel" placeholder="gemini-3.6-flash">
+      </label>
+      <label class="speech-field">
+        What should she call you?
+        <input type="text" id="ownerName" maxlength="30" placeholder="Your name">
+      </label>
+      <label class="speech-field">
+        Her personality (optional — appended to her AI instructions)
+        <textarea id="aiPersonality" rows="3" placeholder="Cheerful little sister who loves snacks and calls me Boss"></textarea>
+      </label>
+      <label class="speech-field" id="ollamaModelRow">
+        Ollama model (needs <span>Ollama</span> installed + pulled, e.g. <span>ollama pull llama3.1:8b</span>)
+        <input type="text" id="aiOllamaModel" placeholder="llama3.1:8b">
+      </label>
+      <button type="button" id="testAi" class="btn-secondary btn-small">Test AI</button>
+      <button type="button" id="checkAi" class="btn-secondary btn-small">Check connection</button>
+      <p class="meter-hint" id="aiStatus" aria-live="polite"></p>
+      <p class="meter-hint" id="aiOnline">API: unknown</p>
+      <div id="aiGraph" class="ai-graph"></div>
+      <p class="meter-hint" id="aiGraphLabel"></p>
+      <p class="section-desc">Privacy: when ON, your chat messages are sent to the AI provider. Key is kept in your local config file.</p>
+    </section>
+        </div>
+
+        <div id="panel-voice" class="panel">
+    <section>
+      <h2>How she sounds</h2>
+      <p class="section-desc">Blip sounds and spoken voices for everything she says. Attach sounds per line in the Speech tab, or set defaults here.</p>
+    </section>
+    <section>
+      <h2>Speech sound</h2>
+      <p class="section-desc">Optional default for all speech — or attach a specific sound to each line above with its 🔊 Sound button. A line-specific sound always wins over this default.</p>
+      <label class="check">
+        <input type="checkbox" id="speechSoundEnabled">
+        Play sound when speaking
+      </label>
+      <label class="check">
+        <input type="checkbox" id="speechSoundIdleOnly">
+        Idle chatter only (skip attacks, tag, reactions)
+      </label>
+      <p class="meter-hint" id="speechSoundLabel">No sound file selected</p>
+      <button type="button" id="pickSpeechSound" class="btn-secondary btn-small">Choose sound file</button>
+      <button type="button" id="clearSpeechSound" class="btn-secondary btn-small">Clear</button>
+      <button type="button" id="testSpeechSound" class="btn-secondary btn-small">Test</button>
+      <label class="range-label">
+        Volume <span id="speechSoundVolumeVal">70</span>
+        <input type="range" id="speechSoundVolume" min="0" max="100" step="1">
+      </label>
+    </section>
+
+    <section>
+      <h2>Voice (VOICEVOX)</h2>
+      <p class="section-desc">Speak bubbles aloud. Either point at your VOICEVOX app, or download the built-in voice (Zundamon pack, ~180MB one-time) — no separate app needed. Note: VOICEVOX voices speak Japanese, so English lines sound charmingly robotic. Voice replaces the blip sound for spoken lines.</p>
+      <label class="check">
+        <input type="checkbox" id="voiceVoxEnabled">
+        Speak lines with VOICEVOX
+      </label>
+      <label class="speech-field">
+        Voice source
+        <select id="voiceVoxBackend">
+          <option value="external">VOICEVOX app (external)</option>
+          <option value="builtin">Built-in voice (no extra app)</option>
+        </select>
+      </label>
+      <label class="speech-field">
+        Built-in voice runs on
+        <select id="voiceDevice">
+          <option value="cpu">CPU (recommended)</option>
+          <option value="directml">GPU via DirectML (needs GPU pack)</option>
+        </select>
+      </label>
+      <div id="voxGpuBox">
+        <p class="section-desc">Offloads synthesis to your GPU (~30MB one-time). Falls back to CPU automatically if unavailable.</p>
+        <button type="button" id="downloadVoxGpu" class="btn-secondary btn-small">Download GPU pack</button>
+        <button type="button" id="cancelVoxGpu" class="btn-secondary btn-small">Cancel</button>
+        <p class="meter-hint" id="voxGpuStatus" aria-live="polite"></p>
+      </div>
+      <div id="voxBuiltinBox">
+        <p class="section-desc">One-time ~180MB download into the app's data folder. The portable exe itself stays small.</p>
+        <label class="check">
+          <input type="checkbox" id="voxAgreeTerms">
+          I agree to the VOICEVOX model + ONNX Runtime terms (credit shown below)
+        </label>
+        <button type="button" id="downloadVoxCore" class="btn-secondary btn-small">Download built-in voice</button>
+        <button type="button" id="cancelVoxCore" class="btn-secondary btn-small">Cancel</button>
+        <div class="vox-progress"><div class="vox-progress-bar" id="voxProgressBar"></div></div>
+        <p class="meter-hint" id="voxCoreStatus" aria-live="polite">Built-in voice not downloaded.</p>
+        <h3 class="sub-heading">Extra voices</h3>
+        <div id="voxExtraVoices"></div>
+        <p class="section-desc" id="voxCredit">Voice credit (required by license): VOICEVOX:ずんだもん・四国めたん・春日部つむぎ・雨晴はう</p>
+      </div>
+      <label class="check">
+        <input type="checkbox" id="voiceVoxIdleOnly">
+        Idle chatter only (game reactions follow their own toggle below)
+      </label>
+      <label class="check">
+        <input type="checkbox" id="voiceVoxReactions" checked>
+        Voice for game reactions (defeat / victory)
+      </label>
+      <label class="speech-field">
+        Engine URL
+        <textarea id="voiceVoxUrl" rows="1" placeholder="http://127.0.0.1:50021"></textarea>
+      </label>
+      <label class="speech-field">
+        Voice
+        <select id="voiceVoxSpeaker"></select>
+      </label>
+      <button type="button" id="refreshVoxSpeakers" class="btn-secondary btn-small">Refresh voices</button>
+      <button type="button" id="testVoxVoice" class="btn-secondary btn-small">Test voice</button>
+      <p class="meter-hint" id="voxStatus" aria-live="polite"></p>
+      <label class="range-label">
+        Speed <span id="voiceVoxSpeedVal">1.0</span>
+        <input type="range" id="voiceVoxSpeed" min="0.5" max="2" step="0.1">
+      </label>
+      <label class="range-label">
+        Voice volume <span id="voiceVoxVolumeVal">100</span>
+        <input type="range" id="voiceVoxVolume" min="0" max="100" step="1">
+      </label>
+    </section>
+        </div>
+
+        <div id="panel-games" class="panel">
+    <section>
+      <h2>How she notices games</h2>
+      <p class="section-desc">Three ways, simplest first: window titles (automatic) → running processes → screen reading / log files (most setup). You only need one.</p>
+    </section>
+    <section>
+      <h2>React to what you're doing</h2>
+      <p class="section-desc">Uses a Windows focus hook (like native desktop pets) — only checks the active app when you switch windows, not on a timer. Cooldown between speech reactions.</p>
+      <label class="check">
+        <input type="checkbox" id="contextReactionsEnabled" checked>
+        React to YouTube / games
+      </label>
+      <label class="range-label">
+        Cooldown <span id="contextReactionCooldownSecVal">45</span> sec
+        <input type="range" id="contextReactionCooldownSec" min="15" max="180" step="5">
+      </label>
+      <button type="button" id="testContextReaction" class="btn-secondary btn-small">Test active window (3 sec)</button>
+      <p class="section-desc context-test-hint">Built into the app (Windows API) — no admin, no extra permissions. Click Test, then within 3 seconds focus YouTube or your game.</p>
+      <p class="context-test-result" id="contextTestResult" aria-live="polite"></p>
+      <h3 class="sub-heading">Detect games without log files</h3>
+      <p class="section-desc">Most online games are already recognized by window title — no setup. For fullscreen games with blank titles, detect the running game process instead. Screen OCR (experimental) reads defeat text like YOU DIED straight off the screen while a game is active.</p>
+      <label class="check">
+        <input type="checkbox" id="gameProcessWatchEnabled" checked>
+        Detect running games by process
+      </label>
+      <label class="speech-field">
+        Known game executables (one per line)
+        <textarea id="gameProcessList" rows="6" placeholder="valorant-win64-shipping.exe&#10;eldenring.exe&#10;javaw.exe"></textarea>
+      </label>
+      <button type="button" id="testProcessWatch" class="btn-secondary btn-small">Test: what games are running?</button>
+      <p class="meter-hint" id="processWatchStatus" aria-live="polite"></p>
+      <button type="button" id="ocrPowerBtn" class="btn-power off">Turn screen watch ON</button>
+      <p class="power-status" id="ocrPowerStatus">Screen watch is OFF</p>
+      <label class="check">
+        <input type="checkbox" id="gameOcrAuto" checked>
+        Auto screen watch: turn ON when a game is detected, OFF when you leave it
+      </label>
+      <label class="check">
+        <input type="checkbox" id="gameOcrDebugEdges">
+        Red screen edges while scanning (debug: proves OCR is running)
+      </label>
+      <p class="section-desc">When ON, the screen is scanned continuously for defeat/victory text — even outside detected games. Uses extra CPU while running.</p>
+      <label class="speech-field">
+        Screen defeat keywords (one per line — matched against screen text)
+        <textarea id="gameOcrPatterns" rows="6" placeholder="YOU DIED&#10;YOU FAILED&#10;FAILED&#10;GAME OVER&#10;DEFEAT"></textarea>
+      </label>
+      <button type="button" id="testOcrScan" class="btn-secondary btn-small">Test screen scan now</button>
+      <p class="meter-hint" id="ocrStatus" aria-live="polite"></p>
+      <h3 class="sub-heading">Scan log</h3>
+      <p class="section-desc">What the last scans read (newest first) — and whether anything matched. ★ = manual test.</p>
+      <div id="ocrLog" class="ocr-log"></div>
+      <button type="button" id="refreshOcrLog" class="btn-secondary btn-small">Refresh log</button>
+      <label class="range-label">
+        Scan every <span id="gameOcrIntervalSecVal">2</span> sec (lower = faster defeat reaction, more CPU)
+        <input type="range" id="gameOcrIntervalSec" min="1" max="10" step="1">
+      </label>
+      <label class="speech-field">
+        Scan quality (higher reads small text better, uses more CPU)
+        <select id="gameOcrQuality">
+          <option value="fast">Fast (small text may miss)</option>
+          <option value="balanced">Balanced</option>
+          <option value="sharp">Sharp (best small text)</option>
+        </select>
+      </label>
+      <label class="speech-field">
+        Scan region (smaller = faster, fewer stray-text false hits)
+        <select id="gameOcrRegion">
+          <option value="full">Full screen</option>
+          <option value="center">Center (middle 60%)</option>
+          <option value="top">Top strip (prompts, timers)</option>
+        </select>
+      </label>
+      <label class="speech-field">
+        Victory keywords (screen OCR, one per line)
+        <textarea id="gameVictoryPatterns" rows="4" placeholder="VICTORY&#10;YOU WIN&#10;WINNER WINNER"></textarea>
+      </label>
+      <label class="speech-field">
+        Watching YouTube / videos
+        <textarea id="textWatch" rows="2" placeholder="What are you watching?&#10;Ooh is that YouTube?"></textarea>
+      </label>
+      <label class="speech-field">
+        Playing a game (general)
+        <textarea id="textGame" rows="2" placeholder="Go go go!&#10;You got this!"></textarea>
+      </label>
+      <label class="speech-field">
+        Game defeat / game over screen
+        <textarea id="textGameFail" rows="2" placeholder="U suck lol&#10;Try again!"></textarea>
+      </label>
+    </section>
+
+        </div>
+
+        <div id="panel-dance" class="panel">
+    <section class="music-section">
+      <h2>Music dance</h2>
+      <p class="section-desc">Uses your <strong>overall speaker volume</strong> (not bass/treble split). Click connect — Windows will ask what to share.</p>
+      <label class="check">
+        <input type="checkbox" id="musicDanceEnabled">
+        Dance when volume is loud enough
+      </label>
+      <button type="button" id="connectSystemAudio" class="btn-secondary btn-small">Connect system audio</button>
+      <p class="meter-hint audio-connect-hint">In the Windows dialog: pick your <strong>screen</strong> and turn <strong>Share system audio</strong> ON, then confirm.</p>
+
+      <div class="audio-meter-block">
+        <p class="meter-label">Live volume <span id="audioLevelVal">0</span>% · dancing: <span id="audioDanceVal">no</span></p>
+        <div class="audio-meter">
+          <div class="audio-meter-fill" id="audioMeterFill"></div>
+          <div class="audio-meter-threshold" id="audioThresholdLine"></div>
+        </div>
+        <p class="meter-hint">Meter calibrates silence for ~2s after connect. Pink line = threshold — set above idle noise.</p>
+      </div>
+
+      <label class="range-label">
+        Volume threshold <span id="musicThresholdVal">35</span>%
+        <input type="range" id="musicThreshold" min="5" max="90" step="1">
+      </label>
+    </section>
+        </div>
+
+        <div id="panel-chaos" class="panel">
+    <section>
+      <h2>Controls</h2>
+      <p class="section-desc">Hold the chosen mouse button on the pet to grab and drag. Short right-click still opens the pet menu. Double-click (left) still opens settings.</p>
+      <label>
+        Grab &amp; drag
+        <select id="grabButton">
+          <option value="right">Right-click hold</option>
+          <option value="left">Left-click hold</option>
+        </select>
+      </label>
+    </section>
+    <section class="chaos-section">
+      <h2>Chaos mode</h2>
+      <p class="section-desc">Double-click pet = settings. Hold the grab button (see Controls) to drag.</p>
+      <label class="check">
+        <input type="checkbox" id="idleChatter" checked>
+        Random idle chatter (pet talks when bored)
+      </label>
+      <label class="check">
+        <input type="checkbox" id="proactiveChatter" checked>
+        Proactive AI chatter (she speaks up on her own; preset lines when AI is down)
+      </label>
+      <label class="check chaos-warning">
+        <input type="checkbox" id="chaosCloseApps">
+        May close a random open program during idle chatter (use at your own risk!)
+      </label>
+      <label class="range-label chaos-only">
+        Close app chance <span id="chaosCloseChanceVal">12</span>% per idle chat
+        <input type="range" id="chaosCloseChance" min="0.02" max="0.5" step="0.02">
+      </label>
+      <button type="button" id="testChaosClose" class="btn-chaos-test">Test close random app</button>
+      <p class="chaos-hint">Test closes one random window (not Virtual Pet). Save unsaved work first!</p>
+    </section>
+    <section class="chaos-section">
+      <h2>Prank mode 😈</h2>
+      <p class="section-desc">Glitch, blackout, fake blue screen, and jumpscare run on the selected pet, back-to-back. The wallpaper swap restores itself on a timer. Pets also prank on their own at the chances below — master switch first. (A real-shutdown effect exists in the engine as a separate strict opt-in — this panel never triggers it.)</p>
+      <label class="check">
+        <input type="checkbox" id="prankEnabled" checked>
+        Enable random pranks for this pet (master switch — percentages do nothing while off)
+      </label>
+      <label class="range-label">
+        Glitch chance <span id="prankChanceGlitchVal">2</span>% · every 10s
+        <input type="range" id="prankChanceGlitch" min="0" max="100" step="1">
+      </label>
+      <label class="range-label">
+        Blackout chance <span id="prankChanceBlackoutVal">2</span>% · every 10s
+        <input type="range" id="prankChanceBlackout" min="0" max="100" step="1">
+      </label>
+      <label class="range-label">
+        Blue screen chance <span id="prankChanceBsodVal">2</span>% · every 10s
+        <input type="range" id="prankChanceBsod" min="0" max="100" step="1">
+      </label>
+      <label class="range-label">
+        Jumpscare chance <span id="prankChanceJumpscareVal">2</span>% · every 10s
+        <input type="range" id="prankChanceJumpscare" min="0" max="100" step="1">
+      </label>
+      <label class="range-label">
+        Wallpaper chance <span id="prankChanceWallpaperVal">2</span>% · every 10s
+        <input type="range" id="prankChanceWallpaper" min="0" max="100" step="1">
+      </label>
+      <label class="range-label">
+        Fake shutdown chance <span id="prankChanceFakeShutdownVal">2</span>% · every 10s
+        <input type="range" id="prankChanceFakeShutdown" min="0" max="100" step="1">
+      </label>
+      <label class="check chaos-warning">
+        <input type="checkbox" id="prankRealShutdown">
+        Allow REAL shutdown prank (actually shuts down Windows — countdown with ESC cancel, use at your own risk!)
+      </label>
+      <label class="range-label">
+        Real shutdown chance <span id="prankChanceRealShutdownVal">0</span>% · every 10s
+        <input type="range" id="prankChanceRealShutdown" min="0" max="100" step="1">
+      </label>
+      <p class="section-desc">Every 10 seconds each enabled prank rolls its chance. 100% fires every ~10s, then that pet rests 10s. 0% disables random firing (manual tests still work).</p>
+      <label class="check">
+        <input type="checkbox" id="prankGlitch" checked>
+        Glitch pet (she freaks out for 5 seconds)
+      </label>
+      <label class="check">
+        <input type="checkbox" id="prankBlackout">
+        Blackout flicker (screen cuts to black ~2s)
+      </label>
+      <label class="check">
+        <input type="checkbox" id="prankBsod">
+        Fake blue screen (classic :( screen, ESC dismisses)
+      </label>
+      <label class="check">
+        <input type="checkbox" id="prankJumpscare">
+        Jumpscare flash (your image, fullscreen, 1.2s)
+      </label>
+      <label class="check">
+        <input type="checkbox" id="prankFakeShutdown" checked>
+        Fake shutdown screen (countdown, ESC dismisses)
+      </label>
+      <label class="speech-field">
+        Jumpscare image
+        <span class="meter-hint" id="prankImageLabel">No image selected</span>
+        <button type="button" id="pickPrankImage" class="btn-secondary btn-small">Choose PNG…</button>
+      </label>
+      <label class="check">
+        <input type="checkbox" id="prankWallpaper" checked>
+        Scary wallpaper swap (auto-restores after the timer)
+      </label>
+      <label class="speech-field">
+        Wallpaper image
+        <span class="meter-hint" id="prankWallpaperLabel">No image selected</span>
+        <button type="button" id="pickPrankWallpaper" class="btn-secondary btn-small">Choose PNG…</button>
+      </label>
+      <label class="range-label">
+        Wallpaper lasts <span id="prankWallpaperSecVal">30</span>s, then restores
+        <input type="range" id="prankWallpaperSec" min="10" max="120" step="5">
+      </label>
+      <button type="button" id="prankNow" class="btn-chaos-test">PRANK NOW 😈</button>
+      <p class="section-desc">Or test one at a time:</p>
+      <div class="prank-test-row">
+        <button type="button" id="testPrankGlitch" class="btn-secondary btn-small">Test glitch</button>
+        <button type="button" id="testPrankBlackout" class="btn-secondary btn-small">Test blackout</button>
+        <button type="button" id="testPrankBsod" class="btn-secondary btn-small">Test blue screen</button>
+        <button type="button" id="testPrankJumpscare" class="btn-secondary btn-small">Test jumpscare</button>
+        <button type="button" id="testPrankWallpaper" class="btn-secondary btn-small">Test wallpaper</button>
+        <button type="button" id="testPrankFakeShutdown" class="btn-secondary btn-small">Test shutdown</button>
+      </div>
+      <p class="meter-hint" id="prankStatus" aria-live="polite"></p>
+    </section>
+        </div>
+      </div>
+
+    <footer class="main-footer">
+      <span class="made-by-footer">Made by Kurizu</span>
+        <div class="main-footer-actions">
+          <button type="button" id="save" class="btn-primary">Save & apply</button>
+      </div>
+    </footer>
+    <p class="hint" id="status">Loading...</p>
+    </div>
+    </div>
+    <div id="characterSelectOverlay" class="overlay" hidden>
+      <div class="overlay-card">
+        <h2>Choose your companion</h2>
+        <p class="section-desc">Pick who lives on your desktop. You can change this anytime in the Character tab.</p>
+        <div id="characterCards" class="character-cards"></div>
+        <div class="overlay-actions">
+          <button type="button" id="characterSelectCustom" class="btn-secondary btn-small">Upload my own…</button>
+          <button type="button" id="characterSelectClose" class="btn-secondary btn-small">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="settings.js"></script>
+</body>
+</html>

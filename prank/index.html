@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Virtual Pet</title>
+  <link rel="stylesheet" href="prank.css">
+</head>
+<body>
+  <div id="prank-root">
+
+    <!-- ================= GLITCH ================= -->
+    <div id="fx-glitch" class="fx" hidden>
+      <div class="gl-scratches"></div>
+      <div class="gl-bars"></div>
+      <div class="gl-scanlines"></div>
+      <div class="gl-noise"></div>
+      <div class="gl-rgb gl-rgb-a">SIGNAL LOST</div>
+      <div class="gl-rgb gl-rgb-b">SIGNAL LOST</div>
+      <div class="gl-banner">
+        <span class="gl-text" data-text="SIGNAL LOST">SIGNAL LOST</span>
+      </div>
+      <div class="gl-corner gl-corner-tl"></div>
+      <div class="gl-corner gl-corner-br"></div>
+      <div class="gl-status">&gt; pet.exe — <span id="glStress">0</span>% corruption</div>
+    </div>
+
+    <!-- ================= JUMPSCARE ================= -->
+    <div id="fx-scare" class="fx" hidden>
+      <div class="sc-fill"></div>
+      <img id="sc-img" class="sc-img" alt="" />
+      <div class="sc-flash"></div>
+      <div class="sc-text" id="sc-text">I SEE YOU</div>
+    </div>
+
+    <!-- ================= BLACKOUT ================= -->
+    <div id="fx-black" class="fx" hidden>
+      <div class="bk-fill"></div>
+      <div class="bk-noise"></div>
+      <div class="bk-face" id="bkFace">☺</div>
+      <div class="bk-hint" id="bk-hint"></div>
+    </div>
+
+    <!-- ================= FAKE SHUTDOWN ================= -->
+    <div id="fx-fakesd" class="fx" hidden>
+      <div class="sd-fill"></div>
+      <div class="sd-center">
+        <div class="sd-spinner"></div>
+        <div class="sd-text" id="sd-text">Shutting down...</div>
+        <div class="sd-sub" id="sd-sub">Please do not turn off your computer</div>
+      </div>
+    </div>
+
+    <!-- ================= FAKE BSOD ================= -->
+    <div id="fx-bsod" class="fx" hidden>
+      <div class="bs-fill"></div>
+      <div class="bs-classic">
+        <div class="bs-sad">:(</div>
+        <div class="bs-line">Your PC ran into a problem and needs to restart.</div>
+      </div>
+    </div>
+
+    <!-- ================= REAL SHUTDOWN COUNTDOWN ================= -->
+    <div id="fx-realsd" class="fx" hidden>
+      <div class="rs-fill"></div>
+      <div class="rs-center">
+        <div class="rs-title" id="rs-title">Your PC is shutting down</div>
+        <div class="rs-count" id="rs-count">20</div>
+        <div class="rs-sub">Press <b>Esc</b> or click anywhere to cancel</div>
+        <button type="button" id="rs-cancel" class="rs-btn">Cancel shutdown</button>
+        <div class="rs-note" id="rs-note"></div>
+      </div>
+    </div>
+
+  </div>
+  <script src="prank.js"></script>
+</body>
+</html>
