@@ -1,6 +1,6 @@
 {
   "name": "desktop-virtual-pet",
-  "version": "1.60.0",
+  "version": "1.71.0",
   "description": "A customizable desktop virtual pet that moves, attacks your cursor, and loves head pets",
   "main": "main.js",
   "scripts": {
@@ -15,21 +15,26 @@
     "directories": {
       "output": "build-output"
     },
-      "files": [
-        "main.js",
-        "voicevox-core.js",
-        "preload.js",
-        "chat/**/*",
-        "scripts/**/*",
-        "pet/**/*",
-        "settings/**/*",
-        "prank/**/*",
-        "assets/**/*",
-        "package.json"
-      ],
+    "files": [
+      "main.js",
+      "minecraft-bot.js",
+      "mc-worker.js",
+      "voicevox-core.js",
+      "preload.js",
+      "chat/**/*",
+      "scripts/**/*",
+      "pet/**/*",
+      "settings/**/*",
+      "prank/**/*",
+      "assets/**/*",
+      "package.json"
+    ],
     "asarUnpack": [
+      "minecraft-bot.js",
+      "mc-worker.js",
       "scripts/**",
       "node_modules/koffi/**",
+      "node_modules/youtube-dl-exec/bin/**",
       "assets/default/**"
     ],
     "win": {
@@ -37,7 +42,8 @@
         "portable"
       ],
       "icon": "assets/icon.ico",
-      "signAndEditExecutable": false
+      "signAndEditExecutable": false,
+      "requestedExecutionLevel": "asInvoker"
     },
     "portable": {
       "artifactName": "Virtual Pet ${version}.exe"
@@ -48,13 +54,21 @@
     "desktop",
     "electron"
   ],
-  "author": "",
-  "license": "MIT",
+  "author": "Kurizu",
+  "license": "SEE LICENSE IN LICENSE",
   "devDependencies": {
     "electron": "^33.2.0",
     "electron-builder": "^25.1.8"
   },
   "dependencies": {
-    "koffi": "^3.0.2"
+    "@discordjs/voice": "^0.19.2",
+    "discord.js": "^14.27.0",
+    "koffi": "^3.0.2",
+    "mineflayer": "^4.39.0",
+    "mineflayer-collectblock": "^1.6.0",
+    "mineflayer-pathfinder": "^2.4.5",
+    "opusscript": "^0.0.8",
+    "play-dl": "^1.9.7",
+    "youtube-dl-exec": "^3.1.15"
   }
 }
