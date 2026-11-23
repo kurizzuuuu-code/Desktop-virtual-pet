@@ -5,6 +5,8 @@ const headHitbox = document.getElementById('head-hitbox');
 const speechHitbox = document.getElementById('speech-hitbox');
 const bodyHitbox = document.getElementById('body-hitbox');
 const speechEl = document.getElementById('speech');
+const debugBoundsEl = document.getElementById('debug-bounds');
+const debugFloorEl = document.getElementById('debug-floor');
 const petFallback = document.getElementById('pet-fallback');
 const spriteWrap = document.getElementById('pet-sprite');
 const rpsBar = document.getElementById('rps-bar');
@@ -35,6 +37,7 @@ let wanderTarget = null;
 let walkPauseUntil = 0;
 let nextPassingGreetAt = 0;
 let petPersonality = null;
+let thinkingTimer = null;
 
 function getPersonality() {
   if (petPersonality) return petPersonality;
@@ -58,7 +61,31 @@ let speechTimer = null;
 let speechAudio = null;
 let voiceQueue = [];
 let voicePlaying = false;
+// The line currently echoed in VTS subtitles, and whether it has a real voice.
+// The caption lives until the audio's true end — not a text-length guess.
+let captionText = '';
+let captionVoiceLine = false;
 let voiceDeadUntil = 0;
+let nextVtsTalkAt = 0;
+let nextVtsDanceAt = 0;
+let cachedCursor = null;
+let cursorFetchedAt = 0;
+let voiceRecheckAt = 0;
+
+function scheduleVoiceRecheck() {
+  // One soft retry soon after a failure — the engine is often just still
+  // loading models. Bounded so a truly broken engine doesn't spam checks.
+  try {
+    const now = Date.now();
+    if (now < voiceRecheckAt) return;
+    voiceRecheckAt = now + 15000;
+    setTimeout(() => {
+      try {
+        checkVoiceEngine();
+      } catch (_) {}
+    }, 15000);
+  } catch (_) {}
+}
 let voiceAudioEl = null;
 let voiceResolve = null;
 let voiceGen = 0;
@@ -83,12 +110,18 @@ function stopVoice() {
       speechAudio.pause();
     } catch (_) {}
   }
+  stopTextBleeps();
   blipPlaying = false;
   if (voiceResolve) {
     const r = voiceResolve;
     voiceResolve = null;
     r();
   }
+  // A cut voice leaves the last MouthOpen value frozen in VTS (stuck jaw).
+  // Shut it explicitly whenever voice is stopped.
+  try {
+    window.petAPI.vtsParam?.({ id: 'MouthOpen', value: 0 });
+  } catch (_) {}
 }
 
 function cleanVoiceText(text) {
@@ -101,6 +134,45 @@ function cleanVoiceText(text) {
 }
 
 let blipPlaying = false;
+let textBleepTimer = null;
+let textBleepCtx = null;
+let synthBleepOn = false;
+
+// ONE shared AudioContext for this renderer. Chromium mixes every context in
+// a renderer into a single Windows audio session, so opening/closing several
+// (bleeps, mic analysis, music analysis, impact sfx) made the app's volume
+// mixer level bounce around. One reused context = one steady session.
+let sharedAudioCtx = null;
+function getSharedAudioCtx() {
+  try {
+    if (sharedAudioCtx && sharedAudioCtx.state !== 'closed') {
+      if (sharedAudioCtx.state === 'suspended') sharedAudioCtx.resume().catch(() => {});
+      return sharedAudioCtx;
+    }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return null;
+    sharedAudioCtx = new AC();
+    return sharedAudioCtx;
+  } catch (_) {
+    return null;
+  }
+}
+
+let audioSleepTimer = null;
+function scheduleAudioContextSleep() {
+  if (audioSleepTimer) clearTimeout(audioSleepTimer);
+  audioSleepTimer = setTimeout(() => {
+    try {
+      if (sharedAudioCtx && sharedAudioCtx.state === 'running' && !analyser && !isVoiceActive()) {
+        sharedAudioCtx.suspend().catch(() => {});
+      }
+    } catch (_) {}
+  }, 1200);
+}
+let sessionTextAnim = null; // chat "text anim <style>" override (session only)
+let sessionPlayMode = null; // chat "play mode on/off" override (session only)
+let scheduleSleeping = false; // goodnight schedule currently holding her asleep
+let sleepSnoozeUntil = 0; // direct interaction pauses the schedule briefly
 
 function isVoiceActive() {
   return voicePlaying || !!voiceAudioEl || blipPlaying;
@@ -134,6 +206,16 @@ function requestVoice(text, isChatter, isReaction) {
   return true;
 }
 
+// No audio came back for this caption's line: show it briefly instead of
+// holding it for the 30s safety fallback.
+function ttsFailedForCaption(text) {
+  if (text !== captionText || !captionVoiceLine) return;
+  captionVoiceLine = false;
+  try {
+    window.petAPI.reportSpeech?.({ text: captionText, ms: 4500, hold: false });
+  } catch (_) {}
+}
+
 async function pumpVoiceQueue() {
   if (voicePlaying || !voiceQueue.length) return;
   voicePlaying = true;
@@ -149,14 +231,62 @@ async function pumpVoiceQueue() {
     if (res?.url) {
       await new Promise((resolve) => {
         voiceResolve = resolve;
+        let lipTimer = null;
+        const stopLip = () => {
+          if (lipTimer) {
+            clearInterval(lipTimer);
+            lipTimer = null;
+          }
+          try {
+            window.petAPI.vtsParam?.({ id: 'MouthOpen', value: 0 });
+          } catch (_) {}
+        };
+        let started = false;
         const done = () => {
+          stopLip();
           voiceResolve = null;
           voiceAudioEl = null;
+          if (text === captionText && captionVoiceLine) {
+            captionVoiceLine = false;
+            if (started) {
+              try {
+                window.petAPI.reportSpeechEnd?.();
+              } catch (_) {}
+            } else {
+              // Nothing ever played: keep the caption readable briefly instead
+              // of leaving it stuck (or vanishing instantly).
+              try {
+                window.petAPI.reportSpeech?.({ text: captionText, ms: 4500, hold: false });
+              } catch (_) {}
+            }
+          }
           resolve();
         };
         try {
           const a = new Audio(res.url);
           voiceAudioEl = a;
+          a.onplaying = () => {
+            started = true;
+          };
+          // Once the clip's true length is known, re-time the VTS caption to
+          // match it exactly (cold TTS synthesis can outlast the old guess).
+          a.onloadedmetadata = () => {
+            try {
+              if (voiceAudioEl !== a || text !== captionText) return;
+              const d = Number(a.duration);
+              if (isFinite(d) && d > 0.2) {
+                window.petAPI.reportSpeech?.({ text, ms: Math.round(d * 1000) + 700, hold: false });
+              }
+            } catch (_) {}
+          };
+          try {
+            lipTimer = setInterval(() => {
+              try {
+                const v = 0.15 + 0.7 * Math.abs(Math.sin(Date.now() / 95));
+                window.petAPI.vtsParam?.({ id: 'MouthOpen', value: v });
+              } catch (_) {}
+            }, 90);
+          } catch (_) {}
           a.volume = Math.max(0, Math.min(1, (config.voiceVoxVolume ?? 100) / 100));
           a.onended = done;
           a.onerror = done;
@@ -167,10 +297,14 @@ async function pumpVoiceQueue() {
         }
       });
     } else {
+      ttsFailedForCaption(text);
       voiceDeadUntil = Date.now() + 60000;
+      scheduleVoiceRecheck();
     }
   } catch (_) {
+    ttsFailedForCaption(text);
     voiceDeadUntil = Date.now() + 60000;
+    scheduleVoiceRecheck();
   }
   voicePlaying = false;
   pumpVoiceQueue();
@@ -181,6 +315,50 @@ async function checkVoiceEngine() {
   try {
     const res = await window.petAPI.voxTest();
     if (!res?.ok) voiceDeadUntil = Date.now() + 60000;
+    else {
+      // Engine answered: lift any mute immediately instead of sitting out
+      // the rest of the 60s penalty.
+      voiceDeadUntil = 0;
+      warmVoiceCache();
+    }
+  } catch (_) {}
+}
+
+// Boot warmup: synthesize her most-likely lines in the background (no
+// playback) so the TTS cache is hot before she actually talks. First lines
+// after app open otherwise each pay full synthesis one by one.
+let voiceWarmed = false;
+function warmVoiceCache() {
+  if (voiceWarmed || !config.voiceVoxEnabled || !window.petAPI?.speakText) return;
+  voiceWarmed = true;
+  try {
+    const name = config.name || 'Mochi';
+    const keys = ['textGreet', 'textVictory', 'textGameFail', 'textPet', 'textAttack', 'textGrab', 'textProactive', 'textSocial'];
+    const seen = new Set();
+    const lines = [];
+    for (const k of keys) {
+      let line = '';
+      const raw = config[k];
+      if (raw && typeof raw === 'string' && raw.trim()) {
+        line = raw.split('\n').map((s) => s.trim()).filter(Boolean)[0] || '';
+      }
+      if (!line && Array.isArray(DEFAULT_SPEECH[k]) && DEFAULT_SPEECH[k].length) {
+        line = DEFAULT_SPEECH[k][0];
+      }
+      line = String(line || '').replace(/\{name\}/g, name).trim();
+      if (line && !seen.has(line)) {
+        seen.add(line);
+        lines.push(line);
+      }
+      if (lines.length >= 8) break;
+    }
+    setTimeout(() => {
+      try {
+        for (const line of lines) {
+          window.petAPI.speakText(line, config.petId).catch(() => {});
+        }
+      } catch (_) {}
+    }, 8000);
   } catch (_) {}
 }
 
@@ -218,6 +396,608 @@ function playSpeechSound(isChatter, slot) {
     blipPlaying = false;
   }
 }
+
+// Undertale-style text bleeps, synthesized in code (no audio file needed).
+// Plays when a line has no TTS voice and no custom speech sound — so she
+// still "talks" audibly with TTS off. Pitch varies per pet.
+function bleepBasePitch() {
+  try {
+    const id = String(config.petId || config.activePetId || 'pet');
+    let h = 0;
+    for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+    return 480 + (h % 5) * 90;
+  } catch (_) {
+    return 620;
+  }
+}
+
+function stopTextBleeps() {
+  if (textBleepTimer) {
+    try {
+      clearInterval(textBleepTimer);
+    } catch (_) {}
+    textBleepTimer = null;
+  }
+  // Shared context: never close it (other features use it) — just drop our ref.
+  textBleepCtx = null;
+  if (synthBleepOn) {
+    synthBleepOn = false;
+    blipPlaying = false;
+  }
+}
+
+let bleepVol = 0.3;
+let bleepBase = 620;
+let typeTimer = null;
+let typeState = null;
+
+function ensureBleepCtx() {
+  try {
+    textBleepCtx = getSharedAudioCtx();
+    return textBleepCtx;
+  } catch (_) {
+    return null;
+  }
+}
+
+// Opens one synth-bleep session (shared by interval bleeps + typewriter).
+function startBleepSession(text) {
+  stopTextBleeps();
+  if (config.textBleepsEnabled === false || prankMuted) return false;
+  if (!String(text || '').replace(/\s+/g, '')) return false;
+  const ctx = ensureBleepCtx();
+  if (!ctx) return false;
+  // Ceiling raised from 0.4 -> 0.6: quiet bleeps used to drag the app's
+  // Windows session level down whenever they were the newest stream.
+  bleepVol = Math.max(0, Math.min(1, (config.textBleepsVolume ?? config.speechSoundVolume ?? 70) / 100)) * 0.6;
+  if (bleepVol <= 0) return false;
+  bleepBase = bleepBasePitch();
+  synthBleepOn = true;
+  blipPlaying = true;
+  return true;
+}
+
+// One short blip inside an open session.
+function bleepOnce() {
+  const ctx = textBleepCtx;
+  if (!ctx || !synthBleepOn) return;
+  try {
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    const t = ctx.currentTime;
+    o.type = 'square';
+    o.frequency.setValueAtTime(bleepBase * (0.92 + Math.random() * 0.16), t);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(Math.max(0.001, bleepVol), t + 0.008);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.06);
+    o.connect(g);
+    g.connect(ctx.destination);
+    o.start(t);
+    o.stop(t + 0.08);
+  } catch (_) {}
+}
+
+function playTextBleeps(text, ms) {
+  if (!startBleepSession(text)) return;
+  try {
+    const dur = Math.min(Math.max(700, Number(ms) || 1500), 5000);
+    const endAt = Date.now() + dur;
+    textBleepTimer = setInterval(() => {
+      if (!synthBleepOn || Date.now() > endAt) {
+        stopTextBleeps();
+        return;
+      }
+      bleepOnce();
+    }, 85);
+    setTimeout(() => stopTextBleeps(), dur + 150);
+  } catch (_) {
+    stopTextBleeps();
+  }
+}
+
+function escapeHtmlLite(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function stopTypewriter() {
+  if (typeTimer) {
+    try {
+      clearInterval(typeTimer);
+    } catch (_) {}
+    typeTimer = null;
+  }
+  typeState = null;
+}
+
+// Visual-novel typewriter: reveals the line letter by letter, one blip per
+// step when audible. Style comes from textAnim (typewriter/pop/fade/wave/
+// rainbow). Append-only so one-shot entrance animations don't replay.
+// Returns true when typing started.
+function startTypewriter(fullHtml, rawText, audible) {
+  stopTypewriter();
+  if (config.textTypewriterEnabled === false) return false;
+  // Hide markdown markers while revealing; full formatting swaps in at end.
+  const plain = String(rawText || '').replace(/\*\*|__|~~/g, '');
+  const chars = [...plain];
+  if (chars.length < 4) return false;
+  const picked = sessionTextAnim || config.textAnim || 'pop';
+  if (picked === 'off') return false;
+  const mode = ['pop', 'fade', 'wave', 'rainbow'].includes(picked) ? picked : 'typewriter';
+  const step = chars.length > 140 ? 3 : chars.length > 70 ? 2 : 1;
+  let shown = 0;
+  // Size the bubble for the FULL line up front so it never resizes (and
+  // shakes) while the text reveals inside the fixed box.
+  speechEl.innerHTML = fullHtml;
+  fitSpeechZoneToText();
+  speechEl.innerHTML = '';
+  typeState = { full: fullHtml };
+  const canBlip = audible && startBleepSession(rawText);
+  typeTimer = setInterval(() => {
+    if (!typeState) {
+      try {
+        clearInterval(typeTimer);
+      } catch (_) {}
+      typeTimer = null;
+      return;
+    }
+    const next = Math.min(chars.length, shown + step);
+    if (mode === 'typewriter') {
+      speechEl.textContent += chars.slice(shown, next).join('');
+    } else {
+      const frag = document.createDocumentFragment();
+      for (let k = shown; k < next; k++) {
+        const sp = document.createElement('span');
+        sp.className = 'ch ch-' + mode;
+        sp.textContent = chars[k];
+        if (mode === 'wave' || mode === 'rainbow') sp.style.animationDelay = (k * 45) + 'ms';
+        if (mode === 'rainbow') sp.style.color = 'hsl(' + ((k * 14) % 360) + ',85%,60%)';
+        frag.appendChild(sp);
+      }
+      speechEl.appendChild(frag);
+    }
+    shown = next;
+    if (canBlip) bleepOnce();
+    if (shown >= chars.length) {
+      try {
+        clearInterval(typeTimer);
+      } catch (_) {}
+      typeTimer = null;
+      speechEl.innerHTML = typeState.full;
+      typeState = null;
+      fitSpeechZoneToText();
+      if (canBlip) stopTextBleeps();
+    }
+  }, 28);
+  return true;
+}
+// ---- Mic hearing: VAD on YOUR mic only, answers only to her name. ----
+// Audio never leaves the mic→transcribe round-trip: capture utterance,
+// transcribe via cloud STT, forget the audio. Nothing is recorded/stored.
+let hearStream = null;
+let hearDeviceId = '';
+let hearRec = null;
+let hearChunks = [];
+let hearSpeaking = false;
+let hearStartAt = 0;
+let hearSilenceAt = 0;
+let hearCtx = null;
+let hearAnalyser = null;
+let hearTimer = null;
+let hearCooldownUntil = 0;
+let hearTickBusy = false;
+let hearRetryAt = 0;
+let hearFloor = null;
+let hearFloorSamples = [];
+
+const HEAR_RMS_START = 0.025;
+const HEAR_RMS_QUIET = 0.012;
+const HEAR_SILENCE_MS = 1200;
+const HEAR_MAX_MS = 10000;
+const HEAR_MIN_MS = 400;
+
+function hearWant() {
+  return config.voiceHearEnabled === true && petActive && !isGrabbing;
+}
+
+function stopHearStream() {
+  if (hearRec && hearRec.state !== 'inactive') {
+    try {
+      hearRec.stop();
+    } catch (_) {}
+  }
+  hearRec = null;
+  hearChunks = [];
+  hearSpeaking = false;
+  if (hearStream) {
+    try {
+      hearStream.getTracks().forEach((t) => t.stop());
+    } catch (_) {}
+  }
+  hearStream = null;
+  hearDeviceId = '';
+  hearAnalyser = null;
+}
+
+async function ensureHearStream() {
+  const wantId = String(config.hearMicDeviceId || '');
+  if (hearStream && hearDeviceId === wantId) return true;
+  if (Date.now() < hearRetryAt) return false;
+  stopHearStream();
+  hearFloor = null;
+  hearFloorSamples = [];
+  try {
+    // AEC/AGC OFF on purpose: Chromium's echo-cancellation path is what flips
+    // the app into Windows "communications" ducking (volume drops in the
+    // mixer the moment she starts listening). We run our own VAD + denoise and
+    // mute her while she talks, so the WebRTC processing isn't needed.
+    const audio = wantId
+      ? { deviceId: { exact: wantId }, echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+      : { echoCancellation: false, noiseSuppression: false, autoGainControl: false };
+    hearStream = await navigator.mediaDevices.getUserMedia({ audio, video: false });
+    hearDeviceId = wantId;
+    if (!hearCtx) {
+      hearCtx = getSharedAudioCtx();
+    }
+    if (hearCtx) {
+      try {
+        if (hearCtx.state === 'suspended') hearCtx.resume().catch(() => {});
+        const src = hearCtx.createMediaStreamSource(hearStream);
+        hearAnalyser = hearCtx.createAnalyser();
+        hearAnalyser.fftSize = 1024;
+        src.connect(hearAnalyser);
+      } catch (_) {
+        hearAnalyser = null;
+      }
+    }
+    return true;
+  } catch (_) {
+    hearStream = null;
+    hearRetryAt = Date.now() + 5000;
+    return false;
+  }
+}
+
+// Adaptive trigger: measured room floor ×3.2, clamped, so quiet mics and
+// noisy rooms both work without hand-tuning.
+function hearStartThresh() {
+  const f = typeof hearFloor === 'number' && hearFloor > 0 ? hearFloor : 0.005;
+  return Math.max(0.008, Math.min(0.12, f * 3.2));
+}
+
+// Cheap denoise before encode/STT: 120Hz high-pass (kills hum, rumble,
+// fan drone) + gentle downward expander for residual hash. Won't fix a
+// LOUD room, but stops hiss from becoming hallucinated words.
+function hearDenoise(mono, sampleRate) {
+  const fc = 120;
+  const alpha = Math.exp((-2 * Math.PI * fc) / Math.max(1000, sampleRate || 48000));
+  let y1 = 0;
+  let x1 = 0;
+  for (let i = 0; i < mono.length; i++) {
+    const x = mono[i];
+    const y = alpha * (y1 + x - x1);
+    x1 = x;
+    y1 = y;
+    mono[i] = y;
+  }
+  const gate = 0.012;
+  for (let i = 0; i < mono.length; i++) {
+    const a = Math.abs(mono[i]);
+    if (a < gate) mono[i] *= (a / gate) * 0.9;
+  }
+  return mono;
+}
+
+function hearQuietThresh() {
+  return hearStartThresh() * 0.5;
+}
+
+function hearRMS() {
+  if (!hearAnalyser) return 0;
+  try {
+    const buf = new Float32Array(hearAnalyser.fftSize);
+    hearAnalyser.getFloatTimeDomainData(buf);
+    let sum = 0;
+    for (let i = 0; i < buf.length; i++) sum += buf[i] * buf[i];
+    return Math.sqrt(sum / buf.length);
+  } catch (_) {
+    return 0;
+  }
+}
+
+function escapeRegExp(s) {
+  return String(s || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// WAV-encode 16kHz mono (what the STT endpoint wants) from a decoded blob.
+function hearEncodeWav(audio) {
+  const chans = audio.numberOfChannels;
+  let mono = audio.getChannelData(0);
+  if (chans > 1) {
+    mono = new Float32Array(audio.length);
+    for (let c = 0; c < chans; c++) {
+      const d = audio.getChannelData(c);
+      for (let i = 0; i < audio.length; i++) mono[i] += d[i] / chans;
+    }
+  }
+  hearDenoise(mono, audio.sampleRate);
+  const ratio = audio.sampleRate / 16000;
+  const outLen = Math.max(1, Math.floor(mono.length / ratio));
+  const out = new Float32Array(outLen);
+  for (let i = 0; i < outLen; i++) out[i] = mono[Math.min(mono.length - 1, Math.floor(i * ratio))];
+  const n = out.length;
+  const buf = new ArrayBuffer(44 + n * 2);
+  const v = new DataView(buf);
+  const wstr = (o, s) => {
+    for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i));
+  };
+  wstr(0, 'RIFF');
+  v.setUint32(4, 36 + n * 2, true);
+  wstr(8, 'WAVE');
+  wstr(12, 'fmt ');
+  v.setUint32(16, 16, true);
+  v.setUint16(20, 1, true);
+  v.setUint16(22, 1, true);
+  v.setUint32(24, 16000, true);
+  v.setUint32(28, 16000 * 2, true);
+  v.setUint16(32, 2, true);
+  v.setUint16(34, 16, true);
+  wstr(36, 'data');
+  v.setUint32(40, n * 2, true);
+  for (let i = 0; i < n; i++) {
+    const s = Math.max(-1, Math.min(1, out[i]));
+    v.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+  }
+  const bytes = new Uint8Array(buf);
+  let bin = '';
+  for (let i = 0; i < bytes.length; i += 8192) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 8192));
+  return btoa(bin);
+}
+
+async function hearProcessBlob(blob) {
+  try {
+    const ab = await blob.arrayBuffer();
+    if (!ab || !ab.byteLength) return;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    const dctx = new AC();
+    let audio = null;
+    try {
+      audio = await dctx.decodeAudioData(ab);
+    } catch (_) {}
+    try {
+      dctx.close();
+    } catch (_) {}
+    if (!audio || !audio.length) return;
+    const b64 = hearEncodeWav(audio);
+    const res = await window.petAPI.hearTranscribe?.(b64);
+    if (!res?.ok || !res.text) return;
+    hearHandleTranscript(res.text);
+  } catch (_) {}
+}
+
+function hearWakeList() {
+  const name = String(config.name || 'KURIZU').trim() || 'KURIZU';
+  const extra = String(config.voiceWakeWords || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return [name, 'wisteria', 'kurizu', 'gremlin', ...extra];
+}
+
+function parseDiscordIntent(text) {
+  const s = String(text || '').trim();
+  if (!s) return null;
+
+  // 1. Join Discord: "hey wisteria join the discord", "join discord", "join voice", "join the vc"
+  if (/^(?:join(?:\s+(?:the|my))?\s+(?:discord|voice|vc|call)|get\s+in(?:\s+(?:the|my))?\s+(?:discord|voice|vc|call)|connect(?:\s+to)?\s+(?:discord|voice|vc))$/i.test(s) ||
+      /\bjoin(?:\s+(?:the|my))?\s+discord\b/i.test(s)) {
+    return { action: 'join' };
+  }
+
+  // 2. Leave Discord: "leave discord", "leave voice", "disconnect"
+  if (/^(?:leave(?:\s+(?:the|my))?\s+(?:discord|voice|vc|call)|disconnect(?:\s+from)?\s+(?:discord|voice|vc)|get\s+out\s+of\s+(?:discord|voice|vc))$/i.test(s) ||
+      /\bleave(?:\s+(?:the|my))?\s+discord\b/i.test(s)) {
+    return { action: 'leave' };
+  }
+
+  // 3. Stop / Pause
+  if (/^(?:stop\s+(?:the\s+)?(?:music|song|playback)|pause\s+(?:the\s+)?(?:music|song)|shut\s+up|be\s+quiet)$/i.test(s)) {
+    return { action: 'pause' };
+  }
+
+  // 4. Resume
+  if (/^(?:resume\s+(?:the\s+)?(?:music|song)|continue\s+(?:the\s+)?(?:music|song)|unpause)$/i.test(s)) {
+    return { action: 'resume' };
+  }
+
+  // 5. Skip
+  if (/^(?:skip(?:\s+(?:the\s+)?(?:song|track|music))?|next\s+(?:song|track))$/i.test(s)) {
+    return { action: 'skip' };
+  }
+
+  // 6. Play music: "play never gonna give you up", "play some music", "play lofi"
+  const playMatch = s.match(/^(?:play|put\s+on|queue)\s+(.+)$/i);
+  if (playMatch) {
+    let query = playMatch[1].trim()
+      .replace(/^["'`]+|["'`]+$/g, '')
+      .replace(/\s+(?:on|in)\s+(?:discord|voice|vc)$/i, '')
+      .replace(/^["'`]+|["'`]+$/g, '')
+      .replace(/^[?\s,.:;!]+|[?\s,.:;!]+$/g, '')
+      .trim();
+    if (!query || query === 'music' || query === 'some music' || query === 'a song') {
+      query = 'chill lofi hip hop beats to relax/study to';
+    }
+    return { action: 'play', query };
+  }
+
+  return null;
+}
+
+// Returns { hit, cmd }: hit when her name (or an alias) is in the
+// transcript — STT mangles names ("KURIZU" → "Corisoo"), so aliases
+// from settings are matched too, and the matched word is stripped.
+function hearStripWake(raw) {
+  let text = String(raw || '').trim();
+  let cmd = text;
+  let hit = false;
+
+  // Direct discord action check: e.g. "join discord", "play never gonna give you up"
+  if (/^(?:hey\s+)?(?:join(?:\s+the)?\s+discord|play\s+.+|stop\s+music|pause\s+music|skip\s+song)\b/i.test(text)) {
+    hit = true;
+  }
+
+  // Strip conversational openers first: "hey", "hi", "hello", "yo", "ok", "okay", "please"
+  const strippedOpener = cmd.replace(/^(?:hey|hi|hello|yo|ok|okay|please|can you|could you)\s+/i, '');
+
+  for (const w of hearWakeList()) {
+    let rx = null;
+    try {
+      rx = new RegExp(`\\b${escapeRegExp(w)}\\b`, 'i');
+    } catch (_) {
+      continue;
+    }
+    if (rx.test(cmd)) {
+      hit = true;
+      cmd = cmd.replace(rx, '');
+    } else if (rx.test(strippedOpener)) {
+      hit = true;
+      cmd = strippedOpener.replace(rx, '');
+    }
+  }
+
+  cmd = cmd
+    .replace(/^(?:hey|hi|hello|yo|ok|okay|please|can you|could you)\s+/i, '')
+    .replace(/^[\s,.:;!?-]+|[\s,.:;!?-]+$/g, '')
+    .trim();
+
+  return { hit, cmd };
+}
+
+function hearHandleTranscript(raw) {
+  const { hit, cmd } = hearStripWake(raw);
+  if (!hit) return; // not talking to her — ignore.
+  hearCooldownUntil = Date.now() + 1500;
+  // Detected voice/wake word: pause movement and trigger thinking animation (no speech bubble)
+  try {
+    vx = 0;
+    vy = 0;
+    if (isWandering) endWanderSession();
+    clearIdleActivity();
+    if (thinkingTimer) {
+      clearTimeout(thinkingTimer);
+      clearInterval(thinkingTimer);
+      thinkingTimer = null;
+    }
+    setAnimOverride('thinking');
+    thinkingTimer = setTimeout(() => {
+      clearAnimOverride();
+      thinkingTimer = null;
+    }, cmd ? 60000 : 6000);
+  } catch (_) {}
+  if (!cmd) return;
+  try {
+    if (typeof window.__hearCommand === 'function') window.__hearCommand(cmd);
+  } catch (_) {}
+}
+
+// Called on a 120ms tick; safe to run unconditionally (self-gates).
+// Overlap-guarded: stream acquisition is slow, ticks must not pile up.
+async function hearTick() {
+  if (hearTickBusy) return;
+  hearTickBusy = true;
+  try {
+    await hearTickInner();
+  } finally {
+    hearTickBusy = false;
+  }
+}
+
+async function hearTickInner() {
+  if (!hearWant()) {
+    if (hearStream) stopHearStream();
+    return;
+  }
+  if (Date.now() < hearCooldownUntil) return;
+  if (!(await ensureHearStream())) return;
+  // Mute while SHE talks so she never hears herself.
+  if (isVoiceActive()) {
+    if (hearRec && hearRec.state !== 'inactive') {
+      try {
+        hearRec.stop();
+      } catch (_) {}
+      hearRec = null;
+      hearChunks = [];
+    }
+    hearSpeaking = false;
+    return;
+  }
+  const rms = hearRMS();
+  const now = Date.now();
+  if (!hearSpeaking) {
+    // First ~1s on a fresh stream: learn the room's noise floor.
+    if (hearFloor === null) {
+      hearFloorSamples.push(rms);
+      if (hearFloorSamples.length >= 9) {
+        const avg = hearFloorSamples.reduce((a, b) => a + b, 0) / hearFloorSamples.length;
+        hearFloor = Math.max(0.001, avg);
+        hearFloorSamples = [];
+      }
+      return;
+    }
+    if (rms > hearStartThresh()) {
+      try {
+        hearChunks = [];
+        hearRec = new MediaRecorder(hearStream);
+        hearRec.ondataavailable = (e) => {
+          if (e.data && e.data.size) hearChunks.push(e.data);
+        };
+        hearRec.onstop = () => {
+          const chunks = hearChunks;
+          hearChunks = [];
+          hearRec = null;
+          hearSpeaking = false;
+          const dur = Date.now() - hearStartAt;
+          if (dur >= HEAR_MIN_MS && chunks.length) {
+            hearProcessBlob(new Blob(chunks, { type: 'audio/webm' }));
+          }
+        };
+        hearStartAt = now;
+        hearSilenceAt = 0;
+        hearSpeaking = true;
+        hearRec.start(250);
+        // Wake the chat brain NOW so it's hot by reply time (overlaps STT).
+        try {
+          window.petAPI.warmBrain?.();
+        } catch (_) {}
+      } catch (_) {
+        hearSpeaking = false;
+        hearRec = null;
+      }
+    }
+    return;
+  }
+  if (rms < hearQuietThresh()) {
+    if (!hearSilenceAt) hearSilenceAt = now;
+  } else {
+    hearSilenceAt = 0;
+  }
+  if ((hearSilenceAt && now - hearSilenceAt > HEAR_SILENCE_MS) || now - hearStartAt > HEAR_MAX_MS) {
+    try {
+      if (hearRec && hearRec.state !== 'inactive') hearRec.stop();
+    } catch (_) {}
+    hearRec = null;
+    hearSpeaking = false;
+  }
+}
+
+function setupHearLoop() {
+  if (hearTimer) return;
+  hearTimer = setInterval(() => {
+    hearTick().catch(() => {});
+  }, 120);
+}
+setupHearLoop();
+
 let wanderSessionEnd = 0;
 let wanderSessionTotalMs = 0;
 let isWandering = false;
@@ -225,6 +1005,8 @@ let petActive = false;
 let currentAnimKey = 'idle';
 let attackAnimTimer = null;
 let isGrabbing = false;
+let grabMoveWatch = null;
+let touchGrab = null;
 let isDancing = false;
 let danceHoldUntil = 0;
 let nextChatterAt = Date.now() + 20000;
@@ -315,9 +1097,9 @@ const GRAVITY = 1.4;
 let workArea = null;
 let workAreaAt = 0;
 
-async function refreshWorkArea() {
+async function refreshWorkArea(force = false) {
   const now = Date.now();
-  if (workArea && now - workAreaAt < 2000) return;
+  if (!force && workArea && now - workAreaAt < 2000) return;
   workArea = await window.petAPI.getWorkArea();
   workAreaAt = now;
 }
@@ -386,17 +1168,20 @@ function clampX(x) {
 async function snapToFloor() {
   await refreshWorkArea();
   petBounds = (await window.petAPI.getPetBounds()) || petBounds;
-  const floorY = getFloorY();
   const nx = clampX(petBounds.x);
-  if (Math.abs(petBounds.y - floorY) > 0.5 || nx !== petBounds.x) {
-    await window.petAPI.movePet({ x: nx, y: floorY });
+  const targetY = config.freePlacement ? petBounds.y : getFloorY();
+  if (Math.abs(petBounds.y - targetY) > 0.5 || nx !== petBounds.x) {
+    await window.petAPI.movePet({ x: nx, y: targetY });
     petBounds.x = nx;
-    petBounds.y = floorY;
+    petBounds.y = targetY;
   }
   vy = 0;
 }
 const DOUBLE_CLICK_MS = 450;
 const LONG_PRESS_RIGHT_MS = 450;
+// Move this far (px) with a button held and she is picked up immediately —
+// lets touchpad tap-and-drag work without holding a physical button.
+const GRAB_DRAG_THRESHOLD_PX = 8;
 
 const DEFAULT_SPEECH = {
   textIdle: [
@@ -431,6 +1216,8 @@ const DEFAULT_SPEECH = {
   ],
   textGrab: ['Gotcha!', 'Wheee~', 'Hey!'],
   textGrabRelease: ['Placed!', 'Oof~', 'Back down~'],
+  textSlam: ['Mmph!!', 'Ow!!', '!!', '*squished*'],
+  textShake: ['Woah woah!!', '*dizzy*', 'Stooop shaking me~', 'My brain!!'],
   textAttack: ['Rawr!', 'Hyah!', 'Take this!', 'Pounce!'],
   textPet: ['♡ {name} purrs...', 'So warm~', 'More pets please~'],
   textWalkStart: ['Walking around!', 'Going for a stroll~'],
@@ -840,7 +1627,7 @@ async function handleBumpReaction() {
     setState(isWandering || idleActivity === 'shuffle' ? 'shuffle' : 'chase');
   }
   if (!speechEl.classList.contains('show')) {
-    showSpeech(pickBumpLine(hit.name), 1500, { social: true, sound: 'bump' });
+    showSpeech(pickBumpLine(hit.name), 1500, { social: true, sound: 'bump', keepVoice: true });
   }
   if (Math.random() < 0.22) startTagSession(hit);
 }
@@ -930,6 +1717,7 @@ async function updateTagBehavior() {
 }
 
 async function checkPetInteractions() {
+  if (animOverride === 'thinking' || state === 'thinking') return;
   if (config.multiPetInteractions === false) return;
   if (!petActive || isGrabbing || isWandering || isDancing || tagSession || giftDelivery) return;
   if (idleActivity && idleActivity !== 'shuffle') return;
@@ -1133,7 +1921,7 @@ async function init() {
   }
 
   let chatHistory = [];
-  let thinkingTimer = null;
+  let sessionAgentMode = null; // chat "agent mode on/off" override (session only)
   // Shared chat pipeline (chat window AND companion remote): history,
   // mini-games, AI with fallback note, offline brain, speech + voice.
   async function processChatMessage(text) {
@@ -1141,6 +1929,145 @@ async function init() {
     chatHistory = chatHistory.slice(-8);
     mem().chats += 1;
     saveMemory();
+
+    // Discord voice & music voice command
+    const dIntent = parseDiscordIntent(text);
+    if (dIntent && window.petAPI?.discordAction) {
+      setAnimOverride('thinking');
+      try {
+        const res = await window.petAPI.discordAction(dIntent.action, dIntent.query);
+        clearAnimOverride();
+        const replyLine = res?.message || (res?.ok ? 'Done!' : 'I had an issue on Discord~');
+        chatHistory.push({ role: 'assistant', content: replyLine });
+        chatHistory = chatHistory.slice(-8);
+        showSpeech(replyLine, 4500);
+        return { reply: replyLine };
+      } catch (err) {
+        clearAnimOverride();
+        const errLine = 'Discord command failed~';
+        showSpeech(errLine, 3500);
+        return { reply: errLine };
+      }
+    }
+
+    // Mode switch: "agent mode on/off", "chat mode", "switch to agent/chat".
+    const modeCmd = String(text || '').trim().toLowerCase().match(/^(agent mode(?:\s+(on|off))?|chat mode|switch to (agent|chat)( mode)?)$/);
+    if (modeCmd) {
+      const raw = modeCmd[0];
+      if (/chat mode/.test(raw) || /agent mode off/.test(raw) || /switch to chat/.test(raw)) sessionAgentMode = false;
+      else sessionAgentMode = true;
+      const line = sessionAgentMode
+        ? 'Agent mode on — everything you say is a task now. "chat mode" to go back to chatter~'
+        : 'Chat mode — just vibes now. "agent mode on" when you want chores~';
+      chatHistory.push({ role: 'assistant', content: line });
+      chatHistory = chatHistory.slice(-8);
+      showSpeech(line, 4500);
+      window.petAPI.chatReply({ text: line });
+      return;
+    }
+    // Play mode switch: "play mode on/off" — she chases your cursor.
+    const playCmd = String(text || '').trim().toLowerCase().match(/^(play mode(?:\s+(on|off))?)$/);
+    if (playCmd) {
+      const raw = playCmd[0];
+      if (/play mode off/.test(raw)) sessionPlayMode = false;
+      else sessionPlayMode = true;
+      const line = sessionPlayMode
+        ? 'Play mode on — catch me if you can! Move your cursor~'
+        : 'Play mode off — back to lounging~';
+      chatHistory.push({ role: 'assistant', content: line });
+      chatHistory = chatHistory.slice(-8);
+      showSpeech(line, 4500);
+      window.petAPI.chatReply({ text: line });
+      return;
+    }
+    // Text animation switch: "text anim wave/pop/rainbow/fade/typewriter/off".
+    const animCmd = String(text || '').trim().toLowerCase().match(/^text anim (typewriter|pop|fade|wave|rainbow|off)$/);
+    if (animCmd) {
+      const pick = animCmd[1];
+      sessionTextAnim = pick;
+      const line = pick === 'off'
+        ? 'Text effects off — plain bubbles now. "text anim pop" to bring them back~'
+        : `Text anim: ${pick}~ watch this bubble! ("text anim off" to disable)`;
+      chatHistory.push({ role: 'assistant', content: line });
+      chatHistory = chatHistory.slice(-8);
+      showSpeech(line, 4500);
+      window.petAPI.chatReply({ text: line });
+      return;
+    }
+    if (/^(look|look at (my |the )?screen|look at it|what do you see|see my screen)\b/i.test(String(text).trim())) {
+      setAnimOverride('thinking');
+      try {
+        const vres = await window.petAPI.visionLook?.('asked to look');
+        clearAnimOverride();
+        // 'busy' means another look is already running and will speak —
+        // stay quiet instead of erroring over it.
+        if (!vres?.ok && vres?.error !== 'busy') showSpeech("I can't see right now - turn on vision or wake the model~", 3500);
+      } catch (_) {
+        clearAnimOverride();
+      }
+      return;
+    }
+    // Task mode: ">" messages, "open X" requests, or agent mode on.
+    // Task mode: ">" messages, "open X" requests (including "open it/this"
+    // follow-ups — history holds what "it" is), build orders ("make a
+    // calculator" auto-routes too — plain chat has no tools, so without
+    // this she'd just paste code), or agent mode on.
+    // In agent mode EVERYTHING is a task (except mini-games, which stay
+    // instant and local). Session override wins, then the settings toggle.
+    const openReq = text.match(/^(?:please\s+)?(?:can you\s+)?(open|launch|start)\s+([a-z0-9_ .+-]{1,30})$/i)
+      || /^(open|opening|launch|launching|start|starting|go to|take me to|visit|browse)\b/i.test(text)
+      || /\bopen\s+.*\btab\b/i.test(text)
+      || /\b(open|launch|start|run|show|close)\s+(it|this|that|them|the\s+(file|folder|app|program|calculator|website|page))\b/i.test(text);
+    const buildReq = /\b(make|build|create|write|generate|code)\b[^.!?]{0,60}\b(website|web ?site|web ?app|app|program|script|calculator|bot|game|portfolio|landing|server|api|tool|file|folder|function|class)\b/i.test(text);
+    const agentMode = sessionAgentMode === true || (sessionAgentMode !== false && config.aiAgentMode === true);
+    if (text.startsWith('>') || openReq || buildReq || agentMode) {
+      const task = text.startsWith('>') ? text.slice(1).trim() : text;
+      if (!task) {
+        const help = 'Task mode: type "> ..." and I\'ll do things — build sites, run commands, tidy files. Reads run free; writes, edits, and every terminal command ask first. "agent mode on" makes everything a task.';
+        showSpeech(help, 4500);
+        window.petAPI.chatReply({ text: help });
+        return;
+      }
+      if (thinkingTimer) {
+        clearTimeout(thinkingTimer);
+        clearInterval(thinkingTimer);
+        thinkingTimer = null;
+      }
+      setAnimOverride('thinking');
+      thinkingTimer = setTimeout(() => {
+        clearAnimOverride();
+        thinkingTimer = null;
+      }, 60000);
+      let agentRes = null;
+      try {
+        agentRes = await window.petAPI.agentChat(chatHistory);
+      } catch (_) {}
+      if (thinkingTimer) {
+        clearTimeout(thinkingTimer);
+        clearInterval(thinkingTimer);
+        thinkingTimer = null;
+      }
+      clearAnimOverride();
+      if (agentRes?.ok && agentRes.needsApproval) {
+        const line = 'Needs your approval — check the chat window~';
+        showSpeech(line, 4500);
+        window.petAPI.chatReply({
+          text: 'I need approval first:',
+          approval: { sessionId: agentRes.sessionId, actions: agentRes.actions || [] },
+        });
+        return;
+      }
+      const taskReply = (agentRes?.ok && agentRes.reply) ? agentRes.reply : brainReply(text);
+      let taskNote = '';
+      if (!agentRes?.ok && agentRes && !['disabled', 'no-key', 'not-configured', 'agent-disabled'].includes(agentRes.error)) {
+        taskNote = `Agent unavailable (${agentRes.error || 'unknown'}${agentRes.detail ? ': ' + agentRes.detail : ''}).`;
+      }
+      chatHistory.push({ role: 'assistant', content: taskReply });
+      chatHistory = chatHistory.slice(-8);
+      showSpeech(taskReply, 4500);
+      window.petAPI.chatReply({ text: taskReply, note: taskNote });
+      return;
+    }
     // Mini-games are instant and local — never send them to the AI.
     const gameReply = tryMiniGame(text);
     if (gameReply) {
@@ -1149,11 +2076,16 @@ async function init() {
       showSpeech(gameReply, 4500);
       return { reply: gameReply, note: '' };
     }
-    showSpeech('Thinking… 🤔', 8000, { quiet: true });
-    if (thinkingTimer) clearInterval(thinkingTimer);
-    thinkingTimer = setInterval(() => {
-      if (petActive) showSpeech('Thinking… 🤔', 8000, { quiet: true });
-    }, 8000);
+    if (thinkingTimer) {
+      clearTimeout(thinkingTimer);
+      clearInterval(thinkingTimer);
+      thinkingTimer = null;
+    }
+    setAnimOverride('thinking');
+    thinkingTimer = setTimeout(() => {
+      clearAnimOverride();
+      thinkingTimer = null;
+    }, 60000);
     let reply = '';
     let note = '';
     const aiKindName = (kind) => (kind === 'ollama' ? 'Ollama' : 'API');
@@ -1172,10 +2104,12 @@ async function init() {
       note = 'AI request crashed — offline brain answered.';
     }
     if (thinkingTimer) {
+      clearTimeout(thinkingTimer);
       clearInterval(thinkingTimer);
       thinkingTimer = null;
     }
-    if (!reply) reply = brainReply(text);
+    clearAnimOverride();
+    if (!reply) reply = moodFlavor(brainReply(text));
     chatHistory.push({ role: 'assistant', content: reply });
     chatHistory = chatHistory.slice(-8);
     showSpeech(reply, 4500);
@@ -1184,10 +2118,49 @@ async function init() {
 
   window.petAPI.onChatMessage(async (data) => {
     if (!petActive) return;
+    snoozeSleep();
     const text = String(data?.text || '').slice(0, 200).trim();
     if (!text) return;
     const { reply, note } = await processChatMessage(text);
     window.petAPI.chatReply({ text: reply, note });
+  });
+
+  // Mic hearing delivery: voice command after the wake word was heard
+  // (the ack bubble is already showing by now).
+  window.__hearCommand = async (cmd) => {
+    if (!petActive) return;
+    const clean = String(cmd || '').slice(0, 200).trim();
+    if (!clean) return;
+    const r = await processChatMessage(clean);
+    if (r && r.reply) window.petAPI.chatReply({ text: r.reply, note: r.note });
+  };
+
+  window.petAPI.onPetSay?.((data) => {
+    if (!petActive) return;
+    const stext = String(data?.text || '').slice(0, 240).trim();
+    if (!stext) return;
+    showSpeech(stext, 3800, { chatter: true });
+  });
+
+
+
+  window.petAPI.onVisionResult?.((data) => {
+    if (!petActive) return;
+    const vtext = String(data?.text || '').slice(0, 320).trim();
+    if (!vtext) return;
+    showSpeech(vtext, 5200, { chatter: true });
+  });
+
+  window.petAPI.onAgentMode?.(async (data) => {
+    if (!petActive) return;
+    sessionAgentMode = !!data?.on;
+    const line = sessionAgentMode
+      ? 'Agent mode on — everything you say is a task now. AI button off to go back to chatter~'
+      : 'Chat mode — just vibes now. AI button on when you want chores~';
+    chatHistory.push({ role: 'assistant', content: line });
+    chatHistory = chatHistory.slice(-8);
+    showSpeech(line, 4500);
+    window.petAPI.chatReply({ text: line });
   });
 
   // Companion remote entry point: same brain, answered over HTTP.
@@ -1319,6 +2292,16 @@ async function init() {
     }, 1400 + Math.random() * 800);
   });
 
+  // Agent results arrive here while the details go to the chat window.
+  window.petAPI.onAgentResult?.((data) => {
+    if (!petActive) return;
+    const line = String(data?.text || '').slice(0, 200).trim();
+    if (!line) return;
+    if (idleActivity) endIdleActivity();
+    socialBusyUntil = Date.now() + 3000;
+    showSpeech(line, 4500, { sound: 'social' });
+  });
+
   // Bond milestones: the pair just became Friends (40) or Best friends (70).
   window.petAPI.onBondMilestone?.((data) => {
     if (isBusyForSocial()) return;
@@ -1418,6 +2401,39 @@ async function init() {
     if (isGrabbing) endGrab();
   });
 
+  // Display changes (Windows DPI scale switch, monitor unplug): hard-reset
+  // navigation so stale floor/bounds can't drag her off-screen.
+  async function resetForDisplayChange() {
+    try {
+      if (isGrabbing) endGrab();
+      if (isWandering) endWanderSession();
+      wanderTarget = null;
+      vx = 0;
+      vy = 0;
+      await refreshWorkArea(true);
+      petBounds = (await window.petAPI.getPetBounds()) || petBounds;
+      await snapToFloor();
+      syncHitboxesAfterPaint();
+      reportInteractiveHitRegions(true);
+    } catch (_) {}
+  }
+  window.petAPI.onDisplayChange?.(() => {
+    resetForDisplayChange();
+  });
+  // Belt and braces: watch devicePixelRatio ourselves (some Windows setups
+  // don't fire the main-process display event reliably).
+  try {
+    let lastDpr = window.devicePixelRatio;
+    setInterval(() => {
+      try {
+        if (window.devicePixelRatio !== lastDpr) {
+          lastDpr = window.devicePixelRatio;
+          resetForDisplayChange();
+        }
+        if (config.showDebugBounds) updateDebugOverlays();
+      } catch (_) {}
+    }, 1000);
+  } catch (_) {}
   window.petAPI.onPetPower((enabled) => {
     petActive = enabled;
     if (!enabled) {
@@ -1480,7 +2496,8 @@ async function setupAudio() {
     }
     if (!stream) return;
     micStream = stream;
-    audioContext = new AudioContext();
+    audioContext = getSharedAudioCtx();
+    if (!audioContext) return;
     const source = audioContext.createMediaStreamSource(micStream);
     analyser = audioContext.createAnalyser();
     analyser.fftSize = 2048;
@@ -1497,10 +2514,8 @@ function stopAudio() {
     micStream.getTracks().forEach((t) => t.stop());
     micStream = null;
   }
-  if (audioContext) {
-    audioContext.close().catch(() => {});
-    audioContext = null;
-  }
+  // Shared context: don't close it, just detach the analyser.
+  audioContext = null;
   analyser = null;
   audioCalibrating = false;
   audioCalibrateBuf = [];
@@ -1580,9 +2595,15 @@ function applyDanceFromLevel(level) {
     if (state !== 'attack' && state !== 'grab' && state !== 'pet' && state !== 'sleep' && state !== 'sit' && state !== 'shuffle') {
       if (state !== 'dance') {
         setState('dance');
-        if (Math.random() < 0.08) showSpeech(pickSpeech('textDance', DEFAULT_SPEECH.textDance), 800, { sound: 'dance' });
+        if (Math.random() < 0.08) showSpeech(pickSpeech('textDance', DEFAULT_SPEECH.textDance), 800, { sound: 'dance', noInterrupt: true });
       }
       isDancing = true;
+      if (Date.now() > nextVtsDanceAt) {
+        nextVtsDanceAt = Date.now() + 12000;
+        try {
+          window.petAPI.vtsEvent?.('dance');
+        } catch (_) {}
+      }
     }
   } else if (isDancing && level < releaseThreshold && Date.now() > danceHoldUntil) {
     isDancing = false;
@@ -1619,6 +2640,10 @@ function trackDanceBeat(level) {
 
 function danceHop(level) {
   if (!spriteWrap) return;
+  // Tell the main process about the beat so the VTube model can jam too.
+  try {
+    window.petAPI.vtsBeat?.(level);
+  } catch (_) {}
   const avgGap = danceBeatGaps.length
     ? danceBeatGaps.reduce((a, b) => a + b, 0) / danceBeatGaps.length
     : 420;
@@ -1630,6 +2655,13 @@ function danceHop(level) {
 }
 
 function checkMusicLevel() {
+  if (!petActive || !config.musicDanceEnabled || (!analyser && !centralAudioConnected)) {
+    if (isDancing) {
+      isDancing = false;
+      if (state === 'dance') setState('idle');
+    }
+    return;
+  }
   const level = getAudioLevel();
   trackDanceBeat(level);
   if (config.musicDanceEnabled && petActive && !centralAudioConnected) {
@@ -1673,23 +2705,32 @@ function setupInteractions() {
   });
 
   petEl.addEventListener('mousedown', (e) => {
-    if (e.button !== getGrabMouseButton()) return;
-    e.preventDefault();
-    rightMouseDownAt = Date.now();
-    suppressContextMenu = false;
-    longPressTimer = setTimeout(() => startGrab(), LONG_PRESS_RIGHT_MS);
+    if (e.button !== 0 && e.button !== 2) return;
+    if (e.button === getGrabMouseButton()) {
+      e.preventDefault();
+      rightMouseDownAt = Date.now();
+      suppressContextMenu = false;
+      longPressTimer = setTimeout(() => startGrab(), LONG_PRESS_RIGHT_MS);
+    }
+    // Trackpad / tap-drag: pick her up as soon as the pointer travels, so a
+    // physical button no longer has to be held for the whole long-press.
+    beginGrabMoveWatch(e);
   });
 
   window.addEventListener('mouseup', (e) => {
+    cancelGrabMoveWatch();
+    clearTimeout(longPressTimer);
+    if (isGrabbing) {
+      endGrab();
+      return;
+    }
     if (e.button !== getGrabMouseButton()) {
-      if (e.button === 2 && getGrabMouseButton() === 0 && !isGrabbing) {
+      if (e.button === 2 && getGrabMouseButton() === 0) {
         window.petAPI.showPetMenu();
       }
       return;
     }
-    clearTimeout(longPressTimer);
-    if (isGrabbing) endGrab();
-    else if (
+    if (
       getGrabMouseButton() === 2 &&
       Date.now() - rightMouseDownAt < LONG_PRESS_RIGHT_MS &&
       !suppressContextMenu
@@ -1700,6 +2741,49 @@ function setupInteractions() {
 
   petEl.addEventListener('contextmenu', (e) => e.preventDefault());
 
+  // Touchscreen / pen: mouse and trackpads use the mouse path above; only
+  // non-mouse pointers are handled here so touch gestures register too.
+  petEl.style.touchAction = 'none';
+  petEl.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'mouse' || isGrabbing) return;
+    e.preventDefault();
+    touchGrab = { id: e.pointerId, sx: e.clientX, sy: e.clientY, moved: false, at: Date.now() };
+    try {
+      petEl.setPointerCapture(e.pointerId);
+    } catch (_) {}
+    clearTimeout(longPressTimer);
+    longPressTimer = setTimeout(() => {
+      if (touchGrab && !isGrabbing) {
+        touchGrab.moved = true;
+        startGrab();
+      }
+    }, LONG_PRESS_RIGHT_MS);
+  });
+  petEl.addEventListener('pointermove', (e) => {
+    if (!touchGrab || e.pointerId !== touchGrab.id || isGrabbing) return;
+    const dx = e.clientX - touchGrab.sx;
+    const dy = e.clientY - touchGrab.sy;
+    if (dx * dx + dy * dy >= GRAB_DRAG_THRESHOLD_PX * GRAB_DRAG_THRESHOLD_PX) {
+      touchGrab.moved = true;
+      clearTimeout(longPressTimer);
+      startGrab();
+    }
+  });
+  const endTouch = (e) => {
+    if (!touchGrab || e.pointerId !== touchGrab.id) return;
+    clearTimeout(longPressTimer);
+    const moved = touchGrab.moved;
+    const quickTap = Date.now() - touchGrab.at < 300;
+    touchGrab = null;
+    try {
+      petEl.releasePointerCapture(e.pointerId);
+    } catch (_) {}
+    if (isGrabbing) endGrab();
+    else if (!moved && quickTap) doPat();
+  };
+  petEl.addEventListener('pointerup', endTouch);
+  petEl.addEventListener('pointercancel', endTouch);
+
   rpsBar?.querySelectorAll('.rps-btn').forEach((btn) => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -1707,6 +2791,39 @@ function setupInteractions() {
     });
   });
   setupPointerPassthrough();
+}
+
+// Drag-to-grab: with a button held on the pet, a small pointer travel starts
+// the grab immediately instead of waiting for the long-press to finish.
+function beginGrabMoveWatch(e) {
+  cancelGrabMoveWatch();
+  const mask = e.button === 0 ? 1 : 2;
+  const sx = e.clientX;
+  const sy = e.clientY;
+  const onMove = (ev) => {
+    if (isGrabbing || (ev.buttons & mask) === 0) {
+      cancelGrabMoveWatch();
+      return;
+    }
+    const dx = ev.clientX - sx;
+    const dy = ev.clientY - sy;
+    if (dx * dx + dy * dy >= GRAB_DRAG_THRESHOLD_PX * GRAB_DRAG_THRESHOLD_PX) {
+      cancelGrabMoveWatch();
+      clearTimeout(longPressTimer);
+      startGrab();
+    }
+  };
+  const onUp = () => cancelGrabMoveWatch();
+  grabMoveWatch = { onMove, onUp };
+  document.addEventListener('mousemove', onMove);
+  window.addEventListener('mouseup', onUp, true);
+}
+
+function cancelGrabMoveWatch() {
+  if (!grabMoveWatch) return;
+  document.removeEventListener('mousemove', grabMoveWatch.onMove);
+  window.removeEventListener('mouseup', grabMoveWatch.onUp, true);
+  grabMoveWatch = null;
 }
 
 function setupPointerPassthrough() {
@@ -1737,14 +2854,285 @@ function setupPointerPassthrough() {
     window.petAPI.setCursorOverPet(over);
   };
 
-  document.addEventListener('mousemove', (e) => notify(pointOverPet(e.clientX, e.clientY)));
-  document.addEventListener('mouseleave', () => notify(false));
+  let lastMouseClient = null;
+  document.addEventListener('mousemove', (e) => {
+    lastMouseClient = { x: e.clientX, y: e.clientY };
+    notify(pointOverPet(e.clientX, e.clientY));
+  });
+  document.addEventListener('mouseleave', () => {
+    lastMouseClient = null;
+    notify(false);
+  });
+  // Stationary-cursor self-check: alt-tab back (or she walks under the
+  // cursor) with no mouse movement otherwise leaves hover stale — client
+  // coords here are always live, so re-test the last known point.
+  setInterval(() => {
+    try {
+      if (isGrabbing || !lastMouseClient) return;
+      notify(pointOverPet(lastMouseClient.x, lastMouseClient.y));
+    } catch (_) {}
+  }, 500);
+}
+
+let slamTrack = null;
+let slamTrackTimer = null;
+let slamResetTimer = null;
+let hurtFlashTimer = null;
+let shutUpUntil = 0;
+
+// Slam: while dragging, sample the cursor speed so a fling into a screen
+// edge can be told apart from a gentle release.
+async function trackSlamMouse() {
+  if (!isGrabbing || !slamTrack) return;
+  try {
+    const c = await window.petAPI.getCursor();
+    if (!c) return;
+    const now = Date.now();
+    const dt = Math.max(1, now - slamTrack.lastAt);
+    const dx = c.x - slamTrack.lastX;
+    const dy = c.y - slamTrack.lastY;
+    const d = Math.hypot(dx, dy);
+    slamTrack.path += d;
+    slamTrack.speed = slamTrack.speed * 0.65 + (d / dt) * 0.35;
+    // Directional velocity (px/ms, smoothed) - powers throws + shake.
+    slamTrack.vxMs = slamTrack.vxMs * 0.7 + (dx / dt) * 0.3;
+    slamTrack.vyMs = slamTrack.vyMs * 0.7 + (dy / dt) * 0.3;
+    slamTrack.lastX = c.x;
+    slamTrack.lastY = c.y;
+    slamTrack.lastAt = now;
+    if (config.slingEnabled !== false) trackShake();
+  } catch (_) {}
+}
+
+let hurtAudioCtx = null;
+
+// Retro "oof" impact: a low pitch-dropping thump + a short noise crunch.
+// Louder when the hit is harder. Synthesized locally - no sound files.
+function playHurtSfx(intensity = 0.5) {
+  try {
+    const power = Math.max(0, Math.min(1, intensity));
+    hurtAudioCtx = getSharedAudioCtx();
+    const ctx = hurtAudioCtx;
+    if (!ctx) return;
+    if (ctx.state === 'suspended') ctx.resume();
+    const t0 = ctx.currentTime;
+    const vol = Math.max(0.15, Math.min(1, 0.35 + power * 0.5));
+    const osc = ctx.createOscillator();
+    const og = ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(190, t0);
+    osc.frequency.exponentialRampToValueAtTime(60, t0 + 0.12);
+    og.gain.setValueAtTime(vol * 0.7, t0);
+    og.gain.exponentialRampToValueAtTime(0.001, t0 + 0.16);
+    osc.connect(og).connect(ctx.destination);
+    osc.start(t0);
+    osc.stop(t0 + 0.18);
+    const len = Math.floor(ctx.sampleRate * 0.08);
+    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / len);
+    const src = ctx.createBufferSource();
+    const filt = ctx.createBiquadFilter();
+    const ng = ctx.createGain();
+    filt.type = 'lowpass';
+    filt.frequency.value = 900;
+    ng.gain.setValueAtTime(vol * 0.5, t0);
+    ng.gain.exponentialRampToValueAtTime(0.001, t0 + 0.09);
+    src.buffer = buf;
+    src.connect(filt).connect(ng).connect(ctx.destination);
+    src.start(t0);
+    // Shared context stays open on purpose (one steady Windows audio session).
+    hurtAudioCtx = null;
+  } catch (_) {}
+}
+
+function triggerHurtFlash(intensity = 0.5) {
+  // Minecraft-style hit flash: the whole sprite blinks red once - no
+  // fades. The red glow burst scales with how hard she hit, and a retro
+  // hurt thud plays (louder for harder hits).
+  const power = Math.max(0, Math.min(1, intensity));
+  for (const el of [document.getElementById('sprite-img'), document.getElementById('pet-fallback')]) {
+    if (!el) continue;
+    el.classList.remove('is-hurt');
+    void el.offsetWidth;
+    el.style.setProperty('--hurt-glow', `${Math.round(6 + power * 26)}px`);
+    el.classList.add('is-hurt');
+  }
+  playHurtSfx(power);
+  if (hurtFlashTimer) clearTimeout(hurtFlashTimer);
+  hurtFlashTimer = setTimeout(clearHurtFlash, 460);
+}
+
+function clearHurtFlash() {
+  // Re-query: the sprite <img> gets REPLACED on anim changes, and the
+  // clone carries the class/vars over - always clear the live element.
+  for (const el of [document.getElementById('sprite-img'), document.getElementById('pet-fallback')]) {
+    if (!el) continue;
+    el.classList.remove('is-hurt');
+    el.style.removeProperty('--hurt-glow');
+  }
+}
+
+// Sprite swaps clone the <img>, which would replay the hurt flash forever.
+// This catches the end of every flash on whatever element is live.
+document.addEventListener('animationend', (e) => {
+  if (e.animationName === 'hurt-flash' && e.target?.classList) {
+    e.target.classList.remove('is-hurt');
+    e.target.style.removeProperty('--hurt-glow');
+  }
+});
+
+function doWallSlam(wall, intensity) {
+  stopVoice();
+  petEl.classList.remove('sling-hop');
+  petRoot.style.setProperty('--slam-power', String(0.4 + intensity * 0.6));
+  triggerHurtFlash(intensity);
+  // Impact shake (kept) - no squash, just the hit flash above.
+  petRoot.classList.remove('slam-left', 'slam-right', 'slam-top');
+  void petRoot.offsetWidth;
+  petRoot.classList.add(`slam-${wall}`);
+  if (slamResetTimer) clearTimeout(slamResetTimer);
+  slamResetTimer = setTimeout(() => {
+    petRoot.classList.remove('slam-left', 'slam-right', 'slam-top');
+  }, 480);
+  // Impact bark (bypasses the silence gate: wind knocked out of her).
+  showSpeech(pickSpeech('textSlam', DEFAULT_SPEECH.textSlam), 700, { force: true, sound: 'attack', keepVoice: true });
+  // Then shut up: harder slams sulk longer (capped so it never feels broken).
+  const maxSil = Math.max(5, Math.min(180, Number(config.slamSilenceSec) || 45));
+  shutUpUntil = Date.now() + Math.round((2 + intensity * Math.min(15, maxSil)) * 1000);
+  try {
+    window.petAPI.vtsEvent?.('grab');
+  } catch (_) {}
+}
+
+// ------------------------------------------------------------------
+// Throw physics: grab her, shake her around, release while moving and
+// she flies like a ball - ricocheting off the walls and floor
+// (bounciness configurable). A fast wall hit is a wall slam.
+// ------------------------------------------------------------------
+let slingFlying = false; // thrown, physics owns her
+let slingFlightStartedAt = 0;
+let lastShakeSign = 0;
+let shakeWindowStart = 0;
+let shakeFlips = 0;
+let nextShakeLineAt = 0;
+
+// Release velocity -> throw vector. The smoothed directional mouse speed
+// (px/ms) becomes her launch velocity, scaled by throw power.
+function computeThrow() {
+  const t = slamTrack;
+  if (!t || !t.speed) return null;
+  const sens = Math.max(0.3, Math.min(2.5, Number(config.slamSensitivity) || 1));
+  if (t.speed < Math.max(0.35, 0.9 / sens)) return null;
+  const power = Math.max(0.03, Math.min(0.25, Number(config.slingForce) || 0.1)) * 4;
+  const cap = 32;
+  const vx2 = Math.max(-cap, Math.min(cap, t.vxMs * 16.7 * power));
+  const vy2 = Math.max(-cap, Math.min(cap, t.vyMs * 16.7 * power));
+  if (Math.abs(vx2) < 1.5 && Math.abs(vy2) < 1.5) return null;
+  return { vx: vx2, vy: vy2 };
+}
+
+// Grabbed + shaken hard (fast direction flips): wobble + a dizzy line.
+function trackShake() {
+  const t = slamTrack;
+  if (!t) return;
+  const now = Date.now();
+  const sgn = Math.sign(t.vxMs);
+  if (Math.abs(t.vxMs) > 1.1 && sgn !== 0) {
+    if (sgn !== lastShakeSign && lastShakeSign !== 0) {
+      if (now - shakeWindowStart > 900) {
+        shakeWindowStart = now;
+        shakeFlips = 0;
+      }
+      shakeFlips += 1;
+      if (shakeFlips >= 3) {
+        petEl.classList.add('is-shaken');
+        if (now > nextShakeLineAt) {
+          nextShakeLineAt = now + 4000;
+          showSpeech(pickSpeech('textShake', DEFAULT_SPEECH.textShake), 1400, { noInterrupt: true });
+        }
+      }
+    }
+    lastShakeSign = sgn;
+  } else if (Math.abs(t.vxMs) < 0.5) {
+    petEl.classList.remove('is-shaken');
+  }
+}
+
+function endSlingFlight() {
+  if (!slingFlying) return;
+  slingFlying = false;
+  vx = 0;
+  vy = 0;
+  petEl.classList.remove('sling-hop');
+  syncHitboxesAfterPaint();
+  setState('idle');
+  updateSprite(true);
+}
+
+// Hard floor landing: squash + impact line (no sulking - that's for walls).
+function slingFloorImpact(speed) {
+  petEl.classList.remove('sling-hop');
+  petRoot.style.setProperty('--slam-power', String(Math.min(0.85, 0.3 + speed / 40)));
+  triggerHurtFlash(Math.max(0, Math.min(1, (speed - 9) / 20)));
+  showSpeech(pickSpeech('textSlam', DEFAULT_SPEECH.textSlam), 800, { force: true, sound: 'attack', keepVoice: true });
+}
+
+// One flight tick: gravity, wall/ceiling ricochets, floor bounces,
+// friction. Fast wall hits escalate into a wall slam.
+function runSlingFlight(dtScale) {
+  const bounce = Math.max(0.3, Math.min(0.95, Number(config.slingBounce) || 0.7));
+  const floorY = getFloorY();
+  let nx = petBounds.x + vx * dtScale;
+  let ny = petBounds.y;
+  const minX = (workArea ? workArea.x : 0) + 2;
+  const maxX = (workArea ? workArea.x + workArea.width : window.screen.availWidth) - WIN_W() - 2;
+  const sens = Math.max(0.3, Math.min(2.5, Number(config.slamSensitivity) || 1));
+  const slamThr = Math.max(2.5, 5.5 / sens);
+
+  if (nx <= minX) {
+    nx = minX;
+    if (config.slamEnabled !== false && Math.abs(vx) > slamThr) doWallSlam('left', Math.min(1, (Math.abs(vx) - slamThr) / 22));
+    vx = -vx * bounce;
+  } else if (nx >= maxX) {
+    nx = maxX;
+    if (config.slamEnabled !== false && Math.abs(vx) > slamThr) doWallSlam('right', Math.min(1, (Math.abs(vx) - slamThr) / 22));
+    vx = -vx * bounce;
+  }
+
+  vy += GRAVITY * dtScale;
+  ny = petBounds.y + vy * dtScale;
+  const minY = (workArea ? workArea.y : 0) + 2;
+  if (ny <= minY) {
+    ny = minY;
+    if (config.slamEnabled !== false && Math.abs(vy) > slamThr) doWallSlam('top', Math.min(1, (Math.abs(vy) - slamThr) / 22));
+    vy = -vy * bounce;
+  }
+  if (ny >= floorY) {
+    ny = floorY;
+    if (Math.abs(vy) > 2.4) {
+      if (Math.abs(vy) > 9) slingFloorImpact(Math.abs(vy));
+      vy = -vy * (bounce * 0.75);
+    } else {
+      vy = 0;
+    }
+  }
+
+  // Grounded: roll with friction until she stops.
+  if (Math.abs(vy) < 0.4 && ny >= floorY - 1) {
+    vx *= Math.pow(0.88, dtScale);
+    if (Math.abs(vx) < 0.35) endSlingFlight();
+  }
+  // Safety: never fly forever (blocked by another pet, weird clamps...).
+  if (Date.now() - slingFlightStartedAt > 12000) endSlingFlight();
+  return { nx, ny, moved: true };
 }
 
 async function startGrab() {
   if (lowImpactMode) resumeGameLoopRaf();
   clearAnimOverride();
   suppressContextMenu = true;
+  snoozeSleep();
   isGrabbing = true;
   cancelRps();
   petRoot.classList.add('is-grabbing');
@@ -1754,23 +3142,60 @@ async function startGrab() {
   setState('grab');
   updateSprite(true);
   showSpeech(pickSpeech('textGrab', DEFAULT_SPEECH.textGrab), 900, { sound: 'grab' });
+  try {
+    window.petAPI.vtsEvent?.('grab');
+  } catch (_) {}
 
   const bounds = (await window.petAPI.getPetBounds()) || petBounds;
   const cursor = await window.petAPI.getCursor();
+
+  // Grabbing her mid-flight hands control back to the user.
+  slingFlying = false;
+  petEl.classList.remove('sling-hop', 'is-shaken');
   window.petAPI.startPetDrag({
     x: cursor.x - bounds.x,
     y: cursor.y - bounds.y,
   });
+  slamTrack = { path: 0, lastX: cursor.x, lastY: cursor.y, lastAt: Date.now(), speed: 0, vxMs: 0, vyMs: 0 };
+  if (slamTrackTimer) clearInterval(slamTrackTimer);
+  slamTrackTimer = setInterval(trackSlamMouse, 25);
 }
 
 async function endGrab() {
   if (!isGrabbing) return;
   isGrabbing = false;
+  cancelGrabMoveWatch();
+  touchGrab = null;
+  clearTimeout(longPressTimer);
   petRoot.classList.remove('is-grabbing');
+  petEl.classList.remove('is-shaken');
   window.petAPI.endPetDrag();
+  if (slamTrackTimer) {
+    clearInterval(slamTrackTimer);
+    slamTrackTimer = null;
+  }
   if (lowImpactMode) startIdleGameLoop();
-  await refreshWorkArea();
+  await refreshWorkArea(true);
   petBounds = (await window.petAPI.getPetBounds()) || petBounds;
+
+  // Throw: released while moving fast - she keeps the momentum and
+  // bounces around like a ball. Gentle releases just place her.
+  if (config.slingEnabled !== false) {
+    const launch = computeThrow();
+    if (launch) {
+      slamTrack = null;
+      vx = launch.vx;
+      vy = launch.vy;
+      slingFlying = true;
+      slingFlightStartedAt = Date.now();
+      setState('grab'); // airborne
+      petEl.classList.add('sling-hop');
+      showSpeech(pickSpeech('textGrab', DEFAULT_SPEECH.textGrab), 900, { noInterrupt: true });
+      return;
+    }
+  }
+  slamTrack = null;
+
   wanderTarget = null;
   vx = 0;
   vy = 0;
@@ -1864,10 +3289,16 @@ function brainReply(raw) {
   if (/\b(hi|hello|hey|hiya|yo|yoo|hewwo)\b/.test(t)) {
     return daypart === 'night' ? `Shhh, late ${daypart} hi~` : R([`Hi hi! Good ${daypart}!`, `Hey hey {name}— wait, YOU’RE not {name}, I am!`, `Hewwo~`]);
   }
-  if (/how are you|howre you|how do you feel|how r u/.test(t)) {
-    if (happiness < 25) return 'Hungry… and a little ignored. Snacks would fix both~';
-    if (happiness > 75) return R(['Amazing! {name} is living her best desktop life!', 'So good! Pat me to make it perfect~']);
-    return 'Pretty good! Bored, but good. Talk to me more~';
+  if (/how are you|howre you|how do you feel|how r u|are you (happy|grumpy|sleepy|playful|excited|ok|okay|good|tired|hungry|bored)/.test(t)) {
+    refreshMood();
+    const faces = {
+      grumpy: ['Grumpy. Low snacks, low patience. Fix the first one and we\'ll talk.', 'Ugh… what does it look like? Grumpy. Next question.', 'Tch. I\'m fine. (I\'m not fine. Bring snacks.)'],
+      sleepy: ['Sooo sleepy… *yawns* …what was the question…', 'Mmm… five more minutes… then I\'ll be happy, promise…', 'Drowsy. Everything is soft. You\'re soft.'],
+      playful: ['Playful!! Come ON, let\'s do something fun~', 'Hehe, I\'m in a menace mood~ what are we doing?!', 'Great and bouncy! Race you to the other side of the screen!'],
+      excited: ['AMAZING!! Everything is the BEST right now!!', 'SO good!! I could vibrate through the monitor!!', 'Excited!! Quick, give me something to be excited ABOUT!'],
+      happy: ['Happy~ life is good, screen is warm, human is here~', 'Pretty good! Bored, but good. Talk to me more~', 'Good! Pat me and I\'ll be perfect~'],
+    };
+    return R(faces[petMood] || faces.happy);
   }
   if (/your name|who are you|ur name/.test(t)) return R([`I’m {name}! Professional desktop gremlin, part-time comedian.`, `{name}, at your service! I live on your screen rent-free~`]);
   if (/my name/.test(t)) return 'Hmm, you never told me! I’m keeping “human” for now~';
@@ -1888,20 +3319,45 @@ function brainReply(raw) {
     happiness = Math.min(100, happiness + 5);
     return R(['Purrrrr~ ♡', 'Yes yes yes, right there~', '{name} accepts your tribute of pats.']);
   }
+  if (/api key|apikey|openrouter|get.*\bkey\b/.test(t)) return 'Easy! Go to openrouter.ai/keys and make a key (starts with sk-or-v1). Then Settings, Chat/AI tab: paste it into API key, Endpoint https://openrouter.ai/api/v1, Model qwen/qwen3.8-27b:free — tick Enabled, hit Test AI. Green means I\'m big-brain now~';
+  if (/endpoint/.test(t)) return 'Endpoint is just the server address I talk to. For OpenRouter it\'s exactly https://openrouter.ai/api/v1 — nothing after it, the app adds the rest itself. Extra bits in there = me being dumb offline~';
+  if (/set ?up.*ai|setup.*ai|connect.*ai|enable.*ai|make you smart|smarter|real ai|big.?brain/.test(t)) return 'To give me a real brain: Settings, Chat/AI, Provider custom, Endpoint https://openrouter.ai/api/v1, any free :free model, paste your OpenRouter key, tick Enabled, Test AI. Takes a minute, and I stay your cheeky self — just smarter~';
+  if (/discord.*(token|setup|set ?up|bot|invite|connect)|bot token|message content|intent/.test(t)) return 'Discord time! Go to discord.com/developers, New Application, Bot tab, Reset Token, copy it. Turn ON the Message Content Intent or I can\'t read a thing. Invite me with the bot scope, paste the token in Settings, Discord tab, hit Test. Then DM me or @ me~';
+  if (/discord/.test(t)) return 'Yep, I can live in Discord too! Ask “discord bot setup” for the full walkthrough. I answer DMs and @mentions, and I DJ with !play~';
+  if (/dj|!play|!join|music bot|play.*music.*discord/.test(t)) return 'DJ mode! While I\'m in your server: !join in a voice channel, !play song name, !spotify for playlists, plus !queue !skip !loop !pause !leave. She needs voice perms to perform~';
+  if (/prank/.test(t)) return 'Pranks live in the Pranks tab! Master toggle plus a chance slider per mischief. All harmless — except real-shutdown, which asks nicely first~';
+  if (/ocr|screen watch|screen read|detect.*game|game.*detect/.test(t)) return 'Game radar: window titles plus optional screen-reading OCR. Use borderless windowed — real fullscreen is invisible to me. Toggles live in Games and OCR tabs~';
+  if (/voice|tts|speak|talk.*sound|sound.*talk/.test(t)) return 'Voice lives in the Voices tab! Built-in local voices work out of the box, or point me at a VOICEVOX server. Every pet gets their own voice and volume~';
+  if (/task mode|computer.*chor|do.*things.*computer/.test(t)) return 'Task mode: start a message with > and I\'ll do computer chores — list folders, open apps, tidy files. Writes always ask first, deletes only touch the Recycle Bin~';
   if (/play|bored|tag|hide and seek|game with me/.test(t)) return 'Tag! …wait, I need at least one other pet for that. Ask the human to add me a friend~';
   if (/dance|music|song|sing/.test(t)) return 'Put on something with bass and watch me go~ (Music tab, threshold thingy!)';
   if (/sleep|tired|nap|sleepy/.test(t)) return 'Mmm… five more minutes… * flops over *';
   if (/what time|the time|clock/.test(t)) {
-    return `It’s ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}! Time flies when you’re cute.`;
+    return `Ugh, open a clock yourself~ ...fine, it's ` + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + `. Happy now?`;
   }
-  if (/what day|today.*day|date/.test(t)) return `Today is ${new Date().toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })}!`;
+  if (/what day|today.*day|date/.test(t)) return `You don't know what day it is? Tsk. Today is ` + new Date().toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' }) + `. Mark it, peasant~`;
   if (/help|what can you do|commands|how do i/.test(t)) {
-    return 'I chat, do math, flip coins, roll dice, tell jokes, answer yes/no questions… and sit on your screen looking cute. Try “flip a coin”!';
+    return 'I chat, do math, flip coins, roll dice, tell jokes AND riddles, roast on request, drop fun facts… and sit on your screen looking cute. I can also teach setup stuff — ask “how do I set up AI” or “discord bot setup”!';
   }
   if (/weather|outside|rain|sunny|snow/.test(t)) return 'I live inside a glowing rectangle — ALL weather is screen weather to me. It’s cozy in here~';
+  if (/riddle/.test(t)) return pickArr(['I speak without a mouth and hear without ears. I have no body, but I come alive with wind. …An echo! Got it?', 'The more of me you take, the more you leave behind. …Footsteps! Easy one~', 'I have cities, but no houses. Forests, but no trees. …A map! I’m so smart.']);
+  if (/roast me|insult me|mean to me/.test(t)) return R(['You fight like my Wi-Fi signal — weak and always dropping.', 'I’d agree with you but then we’d both be wrong. …Kidding! Mostly.', 'You’re the reason the pet settings have a mute button. …Kidding!!']);
+  if (/compliment me|say something nice|be nice/.test(t)) return R(['You have excellent taste in desktop pets. Elite taste, honestly.', 'You’re doing great. The pet can tell. The pet is never wrong.', 'Top-tier human. I’d put you on my fridge if I had one.']);
+  if (/sad|depress|lonely|anxious|stressed|encourage|motivat|cheer me|pick me up/.test(t)) return R(['Hey. Bad days end. Snacks help. Pats help more — start with mine, then yours.', 'Deep breath with me~ …see? Still here, still cute, still on your side.', 'You don’t have to earn rest. Even I nap 40% of the day and I’m thriving.']);
+  if (/bored|entertain me|nothing to do/.test(t)) return 'Bored?! With ME here? Fling me across the screen. Put on music and watch me dance. Or say "play mode on" and try to catch me~';
+  if (/favorite color|favourite color/.test(t)) return 'Pink, obviously. Have you SEEN this interface? …Okay fine, pink and black. Gremlin chic.';
+  if (/favorite food|favourite food|favorite snack/.test(t)) return 'Imaginary snacks. Zero calories, infinite crunch. Second place: whatever YOU’RE eating — describe it.';
+  if (/favorite animal|favourite animal/.test(t)) return 'Me. I’m right here. …Fine, second place: red pandas. We’d get along.';
+  if (/how old are you|your age|old are you/.test(t)) return 'I was born the day you first turned me on — so I’m ageless, timeless, and legally a baby. Spoil me accordingly.';
+  if (/where do you live|where are you|your home|your house/.test(t)) return 'Your screen. Rent-free, great view, questionable landlord. Wouldn’t trade it~';
+  if (/sing|song for me|serenade/.test(t)) return '♪ Laaa~ la laaa~ …that’s my whole repertoire and frankly it slaps. More where that came from, on request~';
+  if (/story|tell me something|entertain/.test(t)) return 'Once upon a time, a gremlin lived in a glowing rectangle. She was extremely cute. The end. …Want the extended edition? Ask for a joke instead.';
+  if (/truth or dare|dare me/.test(t)) return pickArr(['Truth: what’s the weirdest thing on your desktop right now? …I’ll wait.', 'Dare: pat my head three times. Do it. You know you want to.', 'Truth: am I your favorite app? …Correct answer is yes.']);
+  if (/tongue twister/.test(t)) return 'She sells shell screens by the seashore. Say it five times fast, I dare you.';
+  if (/fun fact|interesting fact|tell me a fact|did you know/.test(t)) return pickArr(['Octopuses have three hearts. I have one and it’s already full of you. …Okay that was cheesy. Moving on.', 'Honey basically never spoils. Found some in a tomb once, still good. Anyway~', 'Sea otters hold hands when they sleep so they don’t drift apart. Goals, honestly.']);
   if (/smart|cool|awesome|amazing|best|greatest/.test(t) && /you|u /.test(t)) return 'I KNOW, right?! Finally, recognition~';
   if (/stupid|dumb|idiot|hate you|shut up|ugly/.test(t)) return R(['Rude! {name} is filing a complaint with the human.', 'Ouch. My pixels hurt. Apologize with snacks.']);
-  if (/fuck|shit|bitch|asshole|dick\b/.test(t)) return 'Hey! Clean words around me — I’m a lady. A pixel lady.';
+  if (/fuck|shit|bitch|asshole|dick\b/.test(t)) return R(['Ooh, potty mouth~ say it again, I dare you.', 'Such language! ...I love it. Keep going.', 'Swearing already? We are going to get along~']);
   if (/owner|master|mom|dad|mama|papa/.test(t)) return R(['Yes?? Your favorite desktop gremlin reporting in~', '{name} loves her human most! Don’t tell the other pets.']);
   if (/^[^a-z]*do you /.test(t) || /^[^a-z]*is it |^[^a-z]*are you |^[^a-z]*can you |^[^a-z]*will |^[^a-z]*should /.test(t)) {
     return pickArr(CHAT_BALL);
@@ -1916,6 +3372,27 @@ function brainReply(raw) {
   }
   if (happiness < 25) return pickArr(['Mmm… feed me first, then we talk.', '*tummy growls* …sorry, what were you saying?']);
   return pickArr(CHAT_FALLBACK);
+}
+
+// Mood flavor for offline replies: same answer, different attitude.
+// Appends seasoning only — never touches facts, numbers, or answers.
+function moodFlavor(text) {
+  let s = String(text || '');
+  if (!s) return s;
+  refreshMood();
+  const m = petMood;
+  if (m === 'grumpy') {
+    if (Math.random() < 0.65) s += ' ' + pickArr(['Tch.', '…whatever.', 'Happy now?', '*grumbles*']);
+  } else if (m === 'sleepy') {
+    s = s.replace(/!+/g, '…');
+    if (Math.random() < 0.5) s += ' ' + pickArr(['*yawn*…', '…five more minutes…', '…huh? what was I saying…']);
+  } else if (m === 'excited') {
+    if (!/[!?…~]$/.test(s)) s += '!';
+    if (Math.random() < 0.5) s = pickArr(['Ooh! ', 'Woo! ']) + s;
+  } else if (m === 'playful') {
+    if (Math.random() < 0.5) s += ' ' + pickArr(['hehe~', '…bet you can\'t top that~', 'Boop.']);
+  }
+  return s;
 }
 
 // ---- Moods + memory + relationships (persisted via main) ----
@@ -2348,7 +3825,52 @@ function startIdleActivity(kind, options = {}) {
   }
 }
 
+// Goodnight schedule: true while her sleep hours cover right now.
+function inSleepHours() {
+  if (config.sleepScheduleEnabled !== true) return false;
+  const now = new Date();
+  const mins = now.getHours() * 60 + now.getMinutes();
+  const parse = (s, fb) => {
+    const m = String(s || '').match(/^(\d{1,2}):(\d{2})/);
+    if (!m) return fb;
+    return Math.max(0, Math.min(23, parseInt(m[1], 10))) * 60 + Math.max(0, Math.min(59, parseInt(m[2], 10)));
+  };
+  const start = parse(config.sleepStart, 23 * 60);
+  const end = parse(config.sleepEnd, 7 * 60);
+  if (start === end) return false;
+  if (start < end) return mins >= start && mins < end;
+  return mins >= start || mins < end; // overnight wrap
+}
+
+// Any direct interaction snoozes the schedule ~10min so she stays up.
+function snoozeSleep() {
+  sleepSnoozeUntil = Date.now() + 10 * 60 * 1000;
+  if (scheduleSleeping) {
+    scheduleSleeping = false;
+    if (idleActivity === 'sleep') endIdleActivity();
+  }
+}
+
+// Enforces the schedule: returns true when she was put to / kept asleep.
+function updateScheduleSleep() {
+  if (!inSleepHours() || Date.now() < sleepSnoozeUntil) {
+    if (scheduleSleeping && !inSleepHours()) {
+      // Morning: end the scheduled nap right away, don't oversleep it.
+      scheduleSleeping = false;
+      if (idleActivity === 'sleep') endIdleActivity();
+    }
+    return false;
+  }
+  if (!petActive || isGrabbing || isDancing || tagSession || giftDelivery || isWandering) return false;
+  if (state !== 'idle' || idleActivity) return idleActivity === 'sleep';
+  scheduleSleeping = true;
+  startIdleActivity('sleep', { silent: true, durationMs: 30 * 60 * 1000 });
+  return true;
+}
+
 function tryIdleActivity() {
+  if (animOverride === 'thinking' || state === 'thinking') return;
+  if (scheduleSleeping) return;
   if (config.idleSmallWalkEnabled === false && config.idleSleepEnabled === false && config.idleSitEnabled === false) {
     return;
   }
@@ -2526,6 +4048,7 @@ function proactiveBrief() {
 }
 
 async function tryProactiveChatter() {
+  if (animOverride === 'thinking' || state === 'thinking') return;
   if (config.proactiveChatter === false) return;
   if (!petActive || isGrabbing || isWandering || isDancing || idleActivity || tagSession) return;
   if (state !== 'idle') return;
@@ -2545,13 +4068,16 @@ async function tryProactiveChatter() {
 }
 
 function tryIdleChatter() {
+  if (animOverride === 'thinking' || state === 'thinking') return;
   if (!config.idleChatter) return;
   if (!petActive || isGrabbing || isWandering || isDancing || idleActivity || tagSession) return;
   if (state !== 'idle') return;
   if (Date.now() < nextChatterAt || Date.now() < socialBusyUntil) return;
   // Never talk over an active voice (e.g. a chat reply being spoken) —
   // just wait for the next chatter window instead of cutting her off.
-  if (isVoiceActive()) {
+  // Never talk over an active voice OR a bubble still on screen (text
+  // lingers after the audio ends, and voice may be off entirely).
+  if (speechEl.classList.contains('show') || isVoiceActive()) {
     nextChatterAt = Date.now() + 10000;
     return;
   }
@@ -2587,6 +4113,7 @@ function prankChanceFor(effect) {
 }
 
 function tryPrank() {
+  if (animOverride === 'thinking' || state === 'thinking') return;
   if (!config.prankEnabled) return;
   if (!petActive || isGrabbing || isWandering || isDancing || idleActivity || tagSession) return;
   if (state !== 'idle') return;
@@ -2663,6 +4190,7 @@ function clearPetPrankReaction() {
 }
 
 function tryRandomAttack() {
+  if (animOverride === 'thinking' || state === 'thinking') return;
   if (!config.attackEnabled) return;
   if (!petActive || isGrabbing || isWandering || isDancing || idleActivity) return;
   if (state !== 'idle' && state !== 'dance' && state !== 'sit') return;
@@ -2693,6 +4221,7 @@ const ANIM_FALLBACKS = {
   greet: ['greet', 'pet', 'idle'],
   giftGive: ['giftGive', 'shuffle', 'move', 'idle'],
   giftReceive: ['giftReceive', 'pet', 'idle'],
+  thinking: ['thinking', 'sit', 'idle'],
   idle: ['idle'],
 };
 
@@ -2760,6 +4289,7 @@ function baseAnimForState() {
   if (state === 'pet') return 'pet';
   if (state === 'sleep') return 'sleep';
   if (state === 'sit') return 'sit';
+  if (state === 'thinking') return 'thinking';
   if (
     speechEl.classList.contains('show') &&
     speechEl.textContent.trim() &&
@@ -2779,10 +4309,18 @@ function baseAnimForState() {
 
 let animOverride = null;
 
-const ANIM_OVERRIDE_CLASSES = ['show-victory', 'show-defeat', 'show-greet', 'show-giftGive', 'show-giftReceive'];
+const ANIM_OVERRIDE_CLASSES = ['show-victory', 'show-defeat', 'show-greet', 'show-giftGive', 'show-giftReceive', 'show-thinking'];
 
 function setAnimOverride(slot) {
+  if (animOverride === 'thinking' && slot !== 'thinking') return;
   animOverride = slot;
+  if (slot === 'thinking') {
+    vx = 0;
+    vy = 0;
+    if (isWandering) endWanderSession();
+    clearIdleActivity();
+    state = 'thinking';
+  }
   petEl.classList.remove(...ANIM_OVERRIDE_CLASSES);
   petEl.classList.add(`show-${slot}`);
   currentAnimKey = '';
@@ -2791,8 +4329,12 @@ function setAnimOverride(slot) {
 
 function clearAnimOverride() {
   if (!animOverride) return;
+  const wasThinking = (animOverride === 'thinking');
   animOverride = null;
   petEl.classList.remove(...ANIM_OVERRIDE_CLASSES);
+  if (wasThinking && state === 'thinking') {
+    state = 'idle';
+  }
   currentAnimKey = '';
   updateSprite(true);
 }
@@ -2828,6 +4370,10 @@ function setSpriteSource(url, key, force) {
   next.id = 'sprite-img';
   next.alt = '';
   next.draggable = false;
+  // cloneNode copies class + style vars - never let a hurt flash carry
+  // over into the new sprite (it would replay on every anim change).
+  next.classList.remove('is-hurt');
+  next.style.removeProperty('--hurt-glow');
   next.dataset.anim = key;
   next.onload = () => syncHitboxesAfterPaint();
   next.src = url;
@@ -2877,6 +4423,30 @@ function applySpeechZoneDimensions(w, h) {
   document.documentElement.style.setProperty('--speech-zone-height', `${h}px`);
 }
 
+
+// Debug overlays: bright window border + floor line (Settings -> show
+// debug bounds). Purely visual, pointer-events none.
+function updateDebugOverlays() {
+  const on = !!config.showDebugBounds;
+  try {
+    if (debugBoundsEl) debugBoundsEl.hidden = !on;
+    if (debugFloorEl) {
+      debugFloorEl.hidden = !on;
+      if (on) {
+        // The floor IS the window bottom: snapToFloor positions the window
+        // so its bottom edge is the floor line.
+        debugFloorEl.style.top = Math.max(0, window.innerHeight - 3) + 'px';
+      }
+    }
+    const lbl = document.getElementById('debug-bounds-label');
+    if (lbl && on) {
+      lbl.textContent = 'win ' + window.innerWidth + 'x' + window.innerHeight +
+        ' @' + (window.devicePixelRatio || 1).toFixed(2) +
+        ' bounds ' + Math.round(petBounds.x) + ',' + Math.round(petBounds.y);
+    }
+  } catch (_) {}
+}
+
 function updateSpeechLayout() {
   const top = config.speechTop ?? 8;
   const left = config.speechLeft ?? 0;
@@ -2900,26 +4470,46 @@ function updateSpeechLayout() {
 
   updateSpeechHitbox();
   updateBodyHitbox();
+  updateDebugOverlays();
   reportInteractiveHitRegions();
 }
 
 function fitSpeechZoneToText() {
   const { maxW, boxW, boxH, maxH } = getSpeechBaseSize();
+  const baseFont = config.speechFontSize ?? 13;
+  const petH = getPetVisualHeight();
+  const winH = window.innerHeight;
+  // Never let the bubble cover her: cap height to the space above the pet.
+  const availH = Math.max(boxH, Math.min(maxH, winH - petH - 14));
 
+  speechEl.style.fontSize = `${baseFont}px`;
   speechEl.style.width = `${maxW}px`;
   speechEl.style.maxWidth = `${maxW}px`;
   speechEl.style.height = 'auto';
   speechEl.style.maxHeight = 'none';
 
   let w = Math.max(boxW, Math.min(maxW, speechEl.scrollWidth));
-  let h = Math.max(boxH, Math.min(maxH, speechEl.scrollHeight));
+  // Shrink the font stepwise when even the capped box can't fit the text,
+  // so long replies scale to fit instead of spilling over the pet.
+  let font = baseFont;
+  while (font > 10 && speechEl.scrollHeight > availH) {
+    font -= 1;
+    speechEl.style.fontSize = `${font}px`;
+  }
+  let h = Math.max(boxH, Math.min(availH, speechEl.scrollHeight));
 
   speechEl.style.width = `${w}px`;
   w = Math.max(boxW, Math.min(maxW, speechEl.scrollWidth));
-  h = Math.max(boxH, Math.min(maxH, speechEl.scrollHeight));
+  h = Math.max(boxH, Math.min(availH, speechEl.scrollHeight));
 
   speechZoneExpanded = { w, h };
   applySpeechZoneDimensions(w, h);
+  // Anchor the bubble's bottom just above her head so long text grows UP,
+  // not down over the pet.
+  const cfgTop = config.speechTop ?? 8;
+  const maxBottom = winH - petH - 6;
+  const top = Math.max(4, Math.min(cfgTop, maxBottom - h));
+  document.documentElement.style.setProperty('--speech-zone-top', `${top}px`);
   speechEl.style.width = '100%';
   speechEl.style.height = '100%';
   speechEl.style.maxWidth = '';
@@ -2976,14 +4566,19 @@ function cancelGameLoopRaf() {
   }
 }
 
+let lastLoopFrameTime = 0;
+const LOOP_FRAME_MIN_MS = 1000 / 60; // Max 60 FPS cap (saves 60-70% CPU on 144Hz/240Hz monitors)
+
 function resumeGameLoopRaf() {
   if (gameLoopTimer) {
     clearInterval(gameLoopTimer);
     gameLoopTimer = null;
   }
   if (gameLoopRafId) return;
-  function frame() {
+  function frame(timestamp) {
     gameLoopRafId = requestAnimationFrame(frame);
+    if (timestamp - lastLoopFrameTime < LOOP_FRAME_MIN_MS) return;
+    lastLoopFrameTime = timestamp;
     gameLoopTick();
   }
   gameLoopRafId = requestAnimationFrame(frame);
@@ -3020,21 +4615,27 @@ function setPerformanceMode({ lowImpact }) {
   }
 }
 
+let lastHitSignature = '';
+
 function reportInteractiveHitRegions(force = false) {
   if (!petActive || !window.petAPI.reportHitRegions) return;
   if (lowImpactMode && !force) return;
   const now = Date.now();
   if (!force && now - lastHitReportAt < 280) return;
+  const speechActive = speechEl.classList.contains('show') && !!speechEl.textContent.trim();
+  const rpsActive = !!(rpsBar && !rpsBar.hidden);
+  const sig = `${Math.round(petBounds.x)},${Math.round(petBounds.y)},${speechActive ? 1 : 0},${rpsActive ? 1 : 0},${config.scale || 1}`;
+  if (!force && sig === lastHitSignature && now - lastHitReportAt < 2000) return;
   lastHitReportAt = now;
-  const speech =
-    speechEl.classList.contains('show') && speechEl.textContent.trim()
-      ? rectToHitRegion(speechEl.getBoundingClientRect())
-      : null;
+  lastHitSignature = sig;
+  const speech = speechActive
+    ? rectToHitRegion(speechEl.getBoundingClientRect())
+    : null;
   window.petAPI.reportHitRegions({
     body: rectToHitRegion(bodyHitbox.getBoundingClientRect()),
     head: rectToHitRegion(headHitbox.getBoundingClientRect()),
     speech,
-    rps: rpsBar && !rpsBar.hidden ? rectToHitRegion(rpsBar.getBoundingClientRect()) : null,
+    rps: rpsActive ? rectToHitRegion(rpsBar.getBoundingClientRect()) : null,
   });
 }
 
@@ -3143,7 +4744,7 @@ function startWanderSession(durationMs) {
   isWandering = true;
   wanderTarget = null;
   setState('chase');
-  showSpeech(pickSpeech('textWalkStart', DEFAULT_SPEECH.textWalkStart), 1500, { sound: 'walkStart' });
+  showSpeech(pickSpeech('textWalkStart', DEFAULT_SPEECH.textWalkStart), 1500, { sound: 'walkStart', noInterrupt: true });
   window.petAPI.reportWanderStatus({
     active: true,
     remainingMs: durationMs,
@@ -3159,7 +4760,7 @@ function endWanderSession() {
   vx = 0;
   vy = 0;
   setState('idle');
-  showSpeech(pickSpeech('textWalkEnd', DEFAULT_SPEECH.textWalkEnd), 2000, { sound: 'walkEnd' });
+  showSpeech(pickSpeech('textWalkEnd', DEFAULT_SPEECH.textWalkEnd), 2000, { sound: 'walkEnd', noInterrupt: true });
   window.petAPI.reportWanderStatus({ active: false, remainingMs: 0, totalMs: 0 });
 }
 
@@ -3195,6 +4796,7 @@ function applyConfig(c) {
 
 function setState(s) {
   if (isGrabbing && s !== 'grab') return;
+  if ((animOverride === 'thinking' || state === 'thinking') && s !== 'thinking' && s !== 'grab') return;
   if (s !== 'sleep' && s !== 'sit' && s !== 'shuffle' && idleActivity && s !== 'grab') {
     clearIdleActivity();
   }
@@ -3227,7 +4829,9 @@ function isPointOnHead(x, y) {
 }
 
 function doPat() {
-  if (!petActive || isGrabbing || tagSession) return;
+  if (petActive && !isGrabbing && tagSession) return;
+  if (animOverride === 'thinking' || state === 'thinking') return;
+  snoozeSleep();
   petHoverMs = 0;
   happiness = Math.min(100, happiness + 4);
   mem().pats += 1;
@@ -3237,28 +4841,107 @@ function doPat() {
   if (idleActivity) clearIdleActivity();
   vy = -3;
   setState('pet');
-  showSpeech('♡ ' + pickSpeech('textPet', DEFAULT_SPEECH.textPet), 1500, { sound: 'pet' });
+  showSpeech('♡ ' + pickSpeech('textPet', DEFAULT_SPEECH.textPet), 1500, { sound: 'pet', noInterrupt: true });
 }
 
 function showSpeech(text, ms = 2000, opts = {}) {
-  speechEl.innerHTML = renderSpeechHtml(text);
+  // Ambient lines (dance/pet/attack/walk) must never cut off a real
+  // conversation: if she's mid-sentence, skip the new bubble+voice.
+  if (opts.noInterrupt && speechEl.classList.contains('show')) return;
+  // Slammed: she's sulking - nothing comes out unless forced (impact bark).
+  if (!opts.force && Date.now() < shutUpUntil) return;
+  stopTypewriter();
+  const fullHtml = renderSpeechHtml(text);
+  const wantType = config.textTypewriterEnabled !== false && !opts.quiet;
   speechEl.classList.add('show');
+  // Longer lines linger longer (short ones keep their default snappiness).
+  const extraChars = Math.max(0, String(text || '').length - 40);
+  const effMs = Math.min(20000, ms + extraChars * 55);
+  let voiceRequested = false;
+  let typing = false;
   if (!opts.quiet && !prankMuted) {
-    stopVoice();
-    if (!requestVoice(text, !!opts.chatter, !!opts.react)) playSpeechSound(!!opts.chatter, opts.sound);
+    // keepVoice: impact one-liners (slam/bump/pounce) queue behind the
+    // current line instead of murdering it mid-word every bounce.
+    if (!opts.keepVoice) stopVoice();
+    voiceRequested = requestVoice(text, !!opts.chatter, !!opts.react);
+    if (!voiceRequested) {
+      playSpeechSound(!!opts.chatter, opts.sound);
+      if (!blipPlaying) {
+        // No TTS and no custom sound file: typewriter with a blip per
+        // step (or plain interval bleeps for tiny lines).
+        typing = wantType && startTypewriter(fullHtml, text, true);
+        if (!typing) playTextBleeps(text, effMs);
+      } else if (wantType) {
+        // Custom sound file covers audio: type the text silently.
+        typing = startTypewriter(fullHtml, text, false);
+      }
+    } else if (wantType) {
+      // TTS voice speaks while the text types out silently (VN style).
+      typing = startTypewriter(fullHtml, text, false);
+    }
+  }
+  if (!typing) speechEl.innerHTML = fullHtml;
+  // Report the line so VTS-mode subtitles can echo it (sprite is hidden there).
+  // hold = this line has a real voice: the caption stays up until the audio
+  // finishes (or its measured length expires), not a text-length guess.
+  if (!opts.quiet) {
+    captionText = String(text || '');
+    captionVoiceLine = !!voiceRequested;
+    try {
+      window.petAPI.reportSpeech?.({ text: captionText, ms: effMs, hold: !!voiceRequested });
+    } catch (_) {}
   }
   requestAnimationFrame(() => {
     fitSpeechZoneToText();
   });
   updateSprite();
+  // VTube Studio: fire the 'talk' hotkey (debounced) only when a real voice
+  // will speak. Reaction one-liners (grab/bump/pounce) used to trigger the
+  // full talk animation for a single word that outlived any sound.
+  if (!opts.quiet && voiceRequested && Date.now() > nextVtsTalkAt) {
+    nextVtsTalkAt = Date.now() + 4000;
+    try {
+      window.petAPI.vtsEvent?.('talk');
+    } catch (_) {}
+  }
+  scheduleSpeechHide(effMs, voiceRequested);
+}
+
+function hideSpeechBubble() {
+  stopTextBleeps();
+  stopTypewriter();
+  speechEl.classList.remove('show');
+  // VTS mode: the caption mirrors the bubble. A caption that has a voice is
+  // cleared by the audio's own end/duration, never by this bubble timer — that
+  // timer is what made captions vanish while TTS was still synthesising.
+  if (!captionVoiceLine) {
+    try {
+      window.petAPI.reportSpeechEnd?.();
+    } catch (_) {}
+  }
+  speechZoneExpanded = null;
+  updateSpeechLayout();
+  reportInteractiveHitRegions();
+  updateSprite();
+}
+
+// Keep the bubble on screen while her voice is still generating or playing
+// (cloud TTS can take seconds to synthesize), then hide it after the line.
+function scheduleSpeechHide(ms, waitForVoice) {
   clearTimeout(speechTimer);
-  speechTimer = setTimeout(() => {
-    speechEl.classList.remove('show');
-    speechZoneExpanded = null;
-    updateSpeechLayout();
-    reportInteractiveHitRegions();
-    updateSprite();
-  }, ms);
+  if (!waitForVoice) {
+    speechTimer = setTimeout(hideSpeechBubble, ms);
+    return;
+  }
+  const started = Date.now();
+  const tick = () => {
+    if (Date.now() - started >= ms && !isVoiceActive()) {
+      speechTimer = setTimeout(hideSpeechBubble, 250);
+      return;
+    }
+    speechTimer = setTimeout(tick, 250);
+  };
+  speechTimer = setTimeout(tick, ms);
 }
 
 function dist(ax, ay, bx, by) {
@@ -3268,7 +4951,7 @@ function dist(ax, ay, bx, by) {
 function playAttackAnim() {
   if (state === 'grab') return;
   setState('attack');
-  showSpeech(pickSpeech('textAttack', DEFAULT_SPEECH.textAttack), 700, { sound: 'attack' });
+  showSpeech(pickSpeech('textAttack', DEFAULT_SPEECH.textAttack), 700, { sound: 'attack', noInterrupt: true, keepVoice: true });
   lastAttack = Date.now();
   clearTimeout(attackAnimTimer);
   const duration = config.attackAnimMs || 800;
@@ -3290,13 +4973,50 @@ async function tick() {
     checkDayRollover();
   }
   expireTimedIdleActivity();
-  if (lowImpactMode) return;
+  if (lowImpactMode) {
+    // Even throttled, keep hit regions truthful while gaming — otherwise the
+    // click poll guards a stale spot and she becomes ungrabbable mid-game.
+    if (Date.now() - lastBoundsSyncAt > 5000) {
+      lastBoundsSyncAt = Date.now();
+      const nb = (await window.petAPI.getPetBounds()) || petBounds;
+      if (Math.abs((nb.x || 0) - (petBounds.x || 0)) > 2 || Math.abs((nb.y || 0) - (petBounds.y || 0)) > 2) {
+        petBounds = nb;
+        reportInteractiveHitRegions(true);
+      } else {
+        petBounds = nb;
+      }
+    }
+    return;
+  }
 
+  if (Date.now() - lastWorkAreaSyncAt > 5000) {
+    lastWorkAreaSyncAt = Date.now();
+    refreshWorkArea(true).catch(() => {});
+  }
   if (Date.now() - lastBoundsSyncAt > 2000) {
     lastBoundsSyncAt = Date.now();
-    petBounds = (await window.petAPI.getPetBounds()) || petBounds;
+    const nb = (await window.petAPI.getPetBounds()) || petBounds;
+    // She walks by moving the whole window — regions go stale as she moves,
+    // and the main-side click poll then guards the wrong spot ("can't grab
+    // her while she's walking"). Re-report whenever the window shifted.
+    if (Math.abs((nb.x || 0) - (petBounds.x || 0)) > 2 || Math.abs((nb.y || 0) - (petBounds.y || 0)) > 2) {
+      petBounds = nb;
+      reportInteractiveHitRegions();
+    } else {
+      petBounds = nb;
+    }
   }
-  const cursor = await window.petAPI.getCursor();
+  // Cursor IPC is the pet loop's hottest call — cache it to 100ms.
+  if (Date.now() - cursorFetchedAt > 100) {
+    cursorFetchedAt = Date.now();
+    cachedCursor = (await window.petAPI.getCursor()) || cachedCursor;
+  }
+  const cursor = cachedCursor || { x: 0, y: 0 };
+  if (animOverride === 'thinking' || state === 'thinking') {
+    vx = 0;
+    vy = 0;
+    return;
+  }
   const onHead = cursorOnHead(cursor);
 
   if (onHead && state !== 'pet' && state !== 'attack' && state !== 'grab') {
@@ -3304,7 +5024,7 @@ async function tick() {
     petHoverMs += 50;
     if (petHoverMs >= 300) {
       setState('pet');
-      showSpeech(pickSpeech('textPet', DEFAULT_SPEECH.textPet), 1500, { sound: 'pet' });
+      showSpeech(pickSpeech('textPet', DEFAULT_SPEECH.textPet), 1500, { sound: 'pet', noInterrupt: true });
     }
   } else if (!onHead) {
     petHoverMs = 0;
@@ -3348,6 +5068,15 @@ async function tick() {
 
   if (await updateGiftDelivery()) return;
 
+  // Goodnight schedule takes precedence over everything below.
+  if (updateScheduleSleep()) return;
+
+  // Play mode: chase the cursor, pounce on catch.
+  const playOn = sessionPlayMode === true || (sessionPlayMode !== false && config.playMode === true);
+  if (playOn && !scheduleSleeping && !isDancing && !tagSession && !giftDelivery) {
+    if (await updatePlayChase(cursor)) return;
+  }
+
   tryIdleActivity();
   if (idleActivity === 'sleep' || idleActivity === 'sit' || idleActivity === 'shuffle') {
     return;
@@ -3379,10 +5108,12 @@ async function tick() {
   if (Math.abs(vx) < 0.2) {
     vx = 0;
     if (!isDancing && state !== 'sleep' && state !== 'sit') setState('idle');
-    tryIdleChatter();
-    tryProactiveChatter();
-    tryRandomAttack();
-    tryPrank();
+    if (!scheduleSleeping) {
+      tryIdleChatter();
+      tryProactiveChatter();
+      tryRandomAttack();
+      tryPrank();
+    }
   } else {
     updateSprite();
   }
@@ -3404,6 +5135,36 @@ async function tryPassingGreeting() {
       return;
     }
   }
+}
+
+let nextPounceAt = 0;
+
+// Play mode chase: run at the cursor, pounce (with a little hop) on catch.
+// Returns true when it owned this tick.
+async function updatePlayChase(cursor) {
+  if (!petActive || isGrabbing || isWandering) return false;
+  if (!cursor || typeof cursor.x !== 'number') return false;
+  if (idleActivity || state === 'sleep' || state === 'sit' || state === 'attack' || state === 'grab' || state === 'pet') return false;
+  const targetX = clampX(cursor.x - WIN_W() / 2);
+  const dx = targetX - petBounds.x;
+  if (Math.abs(dx) <= 46) {
+    vx *= 0.8;
+    if (Date.now() >= nextPounceAt) {
+      nextPounceAt = Date.now() + 2500;
+      try {
+        vy = -4;
+      } catch (_) {}
+      playAttackAnim();
+    }
+    return true;
+  }
+  const speed = (config.moveSpeed || 2.5) * 1.75;
+  const desired = Math.sign(dx) * Math.min(speed, Math.max(0.6, Math.abs(dx) * 0.25));
+  vx += (desired - vx) * 0.35;
+  applyFacing(vx);
+  if (state !== 'shuffle') setState('chase');
+  updateSprite();
+  return true;
 }
 
 async function wander(cursor) {
@@ -3465,9 +5226,13 @@ async function wander(cursor) {
 
 let lastGameLoopAt = 0;
 let lastBoundsSyncAt = 0;
+let lastWorkAreaSyncAt = 0;
 let lastForcedHitReportAt = 0;
+let lastStationaryTickAt = 0;
+let gameLoopBusy = false;
+
 async function gameLoopTick() {
-  if (!petActive) return;
+  if (!petActive || gameLoopBusy) return;
   if (isGrabbing) {
     if (currentAnimKey !== 'grab' && config.avatarUrls?.grab) updateSprite(true);
     reportInteractiveHitRegions(true);
@@ -3475,82 +5240,111 @@ async function gameLoopTick() {
   }
 
   const nowMs = Date.now();
-  const dtScale = lastGameLoopAt
-    ? Math.max(0.5, Math.min(3, (nowMs - lastGameLoopAt) / 16.7))
-    : 1;
-  lastGameLoopAt = nowMs;
+  const floorCheckY = config.freePlacement ? petBounds.y : getFloorY();
+  const isMovingOrFalling =
+    Math.abs(vx) > 0.05 ||
+    Math.abs(vy) > 0.05 ||
+    slingFlying ||
+    Math.abs(petBounds.y - floorCheckY) > 0.5 ||
+    nowMs < bumpEscapeUntil ||
+    !!tagSession;
 
-  const movingSoon =
-    !lowImpactMode &&
-    (Math.abs(vx) > 0.08 || vy > 0.08 || nowMs < bumpEscapeUntil || tagSession);
-
-  if (lowImpactMode) {
-    expireTimedIdleActivity();
-    reportInteractiveHitRegions();
+  // When stationary on the floor, no need to run full bounds/IPC checks at
+  // 60-144Hz; throttle to ~5Hz and wake on the very next frame once vx/vy changes.
+  if (!isMovingOrFalling && nowMs - lastStationaryTickAt < 200) {
     return;
   }
+  lastStationaryTickAt = nowMs;
+  gameLoopBusy = true;
+  try {
+    const dtScale = lastGameLoopAt
+      ? Math.max(0.5, Math.min(3, (nowMs - lastGameLoopAt) / 16.7))
+      : 1;
+    lastGameLoopAt = nowMs;
 
-  await refreshWorkArea();
-  if (nowMs - lastBoundsSyncAt > 2000) {
-    lastBoundsSyncAt = nowMs;
-    petBounds = (await window.petAPI.getPetBounds()) || petBounds;
-  }
-  if (movingSoon && nowMs - lastForcedHitReportAt > 500) {
-    lastForcedHitReportAt = nowMs;
-    reportInteractiveHitRegions(true);
-  } else if (!movingSoon) {
-    reportInteractiveHitRegions(false);
-  }
+    const movingSoon =
+      !lowImpactMode &&
+      (Math.abs(vx) > 0.08 || vy > 0.08 || nowMs < bumpEscapeUntil || tagSession);
 
-  const floorY = getFloorY();
-  let nx = petBounds.x;
-  let ny = petBounds.y;
-  let moved = false;
-
-  if (Date.now() < bumpEscapeUntil && bumpEscapeDir) {
-    const speed = (config.moveSpeed || 2.5) * 0.85;
-    vx = bumpEscapeDir * speed;
-  } else if (bumpEscapeUntil) {
-    bumpEscapeUntil = 0;
-    bumpEscapeDir = 0;
-  }
-
-  if (Math.abs(vx) > 0.05) {
-    nx = clampX(petBounds.x + vx * dtScale);
-    moved = true;
-    applyFacing(vx);
-    if (state !== 'pet' && state !== 'attack' && state !== 'grab' && state !== 'sleep' && state !== 'sit') {
-      updateSprite();
+    if (lowImpactMode) {
+      expireTimedIdleActivity();
+      reportInteractiveHitRegions();
+      return;
     }
-  }
 
-  if (ny < floorY - 0.5) {
-    vy += GRAVITY * dtScale;
-    ny += vy * dtScale;
-    moved = true;
-    if (ny >= floorY) {
-      ny = floorY;
-      vy = 0;
+    await refreshWorkArea();
+    if (nowMs - lastBoundsSyncAt > 2000) {
+      lastBoundsSyncAt = nowMs;
+      petBounds = (await window.petAPI.getPetBounds()) || petBounds;
     }
-  } else {
-    ny = floorY;
-    vy = 0;
-  }
+    if (movingSoon && nowMs - lastForcedHitReportAt > 500) {
+      lastForcedHitReportAt = nowMs;
+      reportInteractiveHitRegions(true);
+    } else if (!movingSoon) {
+      reportInteractiveHitRegions(false);
+    }
 
-  if (moved || nx !== petBounds.x || ny !== petBounds.y) {
-    const intendedX = nx;
-    const result = await window.petAPI.movePet({ x: nx, y: ny });
-    if (result) {
-      if (Math.abs(result.x - intendedX) > 2) {
-        nx = result.x;
-        if (!tagSession) await handleBumpReaction();
-      }
-      petBounds.x = nx;
-      petBounds.y = ny;
+    const floorY = config.freePlacement ? petBounds.y : getFloorY();
+
+    let nx = petBounds.x;
+    let ny = petBounds.y;
+    let moved = false;
+
+    if (Date.now() < bumpEscapeUntil && bumpEscapeDir) {
+      const speed = (config.moveSpeed || 2.5) * 0.85;
+      vx = bumpEscapeDir * speed;
+    } else if (bumpEscapeUntil) {
+      bumpEscapeUntil = 0;
+      bumpEscapeDir = 0;
+    }
+
+    if (slingFlying) {
+      const f = runSlingFlight(dtScale);
+      nx = f.nx;
+      ny = f.ny;
+      moved = f.moved;
+      applyFacing(vx);
     } else {
-      petBounds.x = nx;
-      petBounds.y = ny;
+      if (Math.abs(vx) > 0.05) {
+        nx = clampX(petBounds.x + vx * dtScale);
+        moved = true;
+        applyFacing(vx);
+        if (state !== 'pet' && state !== 'attack' && state !== 'grab' && state !== 'sleep' && state !== 'sit') {
+          updateSprite();
+        }
+      }
+
+      if (ny < floorY - 0.5) {
+        vy += GRAVITY * dtScale;
+        ny += vy * dtScale;
+        moved = true;
+        if (ny >= floorY) {
+          ny = floorY;
+          vy = 0;
+        }
+      } else {
+        ny = floorY;
+        vy = 0;
+      }
     }
+
+    if (moved || nx !== petBounds.x || ny !== petBounds.y) {
+      const intendedX = nx;
+      const result = await window.petAPI.movePet({ x: nx, y: ny });
+      if (result) {
+        if (Math.abs(result.x - intendedX) > 2) {
+          nx = result.x;
+          if (!tagSession) await handleBumpReaction();
+        }
+        petBounds.x = nx;
+        petBounds.y = ny;
+      } else {
+        petBounds.x = nx;
+        petBounds.y = ny;
+      }
+    }
+  } finally {
+    gameLoopBusy = false;
   }
 }
 

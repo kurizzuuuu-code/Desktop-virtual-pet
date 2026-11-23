@@ -1,57 +1,146 @@
 {
   "name": "desktop-virtual-pet",
-  "version": "1.71.0",
-  "description": "A customizable desktop virtual pet that moves, attacks your cursor, and loves head pets",
+  "version": "1.81.10",
+  "description": "Desktop Gremlin — a customizable desktop gremlin that moves, attacks your cursor, and loves head pets",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
     "dev": "electron .",
     "prebuild": "node scripts/bake-defaults.js",
-    "build": "electron-builder --win portable"
+    "build": "electron-builder --win nsis",
+    "build:installer": "electron-builder --win nsis",
+    "build:portable": "electron-builder --win portable"
   },
   "build": {
-    "appId": "com.desktop.virtualpet",
-    "productName": "Virtual Pet",
+    "appId": "com.kurizu.desktopgremlin",
+    "compression": "normal",
+    "electronLanguages": [
+      "en-US"
+    ],
+    "productName": "Desktop Gremlin",
     "directories": {
       "output": "build-output"
     },
+    "extraResources": [
+      {
+        "from": "node_modules/ffmpeg-static/",
+        "to": "ffmpeg/",
+        "filter": [
+          "ffmpeg.exe",
+          "ffmpeg.exe.LICENSE"
+        ]
+      }
+    ],
     "files": [
       "main.js",
       "minecraft-bot.js",
       "mc-worker.js",
+      "vts-client.js",
       "voicevox-core.js",
+      "vox-kokoro-worker.js",
+      "contrast-worker.js",
+      "tiktok-worker.js",
       "preload.js",
       "chat/**/*",
       "scripts/**/*",
       "pet/**/*",
       "settings/**/*",
+      "subtitle/**/*",
       "prank/**/*",
       "assets/**/*",
+      "node_modules/**/*",
+      "!node_modules/onnxruntime-node/bin/napi-v3/darwin/**",
+      "!node_modules/onnxruntime-node/bin/napi-v3/linux/**",
+      "!node_modules/onnxruntime-node/bin/napi-v3/win32/arm64/**",
+      "!node_modules/onnxruntime-node/bin/napi-v3/win32/x64/DirectML.dll",
+      "!node_modules/@huggingface/transformers/.cache/**",
+      "!node_modules/**/*.map",
+      "!node_modules/onnxruntime-web/**",
       "package.json"
     ],
     "asarUnpack": [
       "minecraft-bot.js",
       "mc-worker.js",
+      "contrast-worker.js",
+      "tiktok-worker.js",
+      "vox-kokoro-worker.js",
+      "vts-client.js",
       "scripts/**",
+      "assets/default/**",
+      "node_modules/@bufbuild/protobuf/**",
+      "node_modules/@huggingface/jinja/**",
+      "node_modules/@huggingface/transformers/**",
+      "node_modules/@img/colour/**",
+      "node_modules/@img/sharp-win32-x64/**",
+      "node_modules/@koromix/koffi-win32-x64/**",
+      "node_modules/@snazzah/davey/**",
+      "node_modules/asynckit/**",
+      "node_modules/axios/**",
+      "node_modules/call-bind-apply-helpers/**",
+      "node_modules/combined-stream/**",
+      "node_modules/debug/**",
+      "node_modules/delayed-stream/**",
+      "node_modules/dunder-proto/**",
+      "node_modules/es-define-property/**",
+      "node_modules/es-errors/**",
+      "node_modules/es-object-atoms/**",
+      "node_modules/es-set-tostringtag/**",
+      "node_modules/ffmpeg-static/**",
+      "node_modules/follow-redirects/**",
+      "node_modules/form-data/**",
+      "node_modules/function-bind/**",
+      "node_modules/get-intrinsic/**",
+      "node_modules/get-proto/**",
+      "node_modules/gopd/**",
+      "node_modules/hasown/**",
+      "node_modules/has-symbols/**",
+      "node_modules/has-tostringtag/**",
+      "node_modules/http-cache-semantics/**",
       "node_modules/koffi/**",
-      "node_modules/youtube-dl-exec/bin/**",
-      "assets/default/**"
+      "node_modules/kokoro-js/**",
+      "node_modules/math-intrinsics/**",
+      "node_modules/mime-db/**",
+      "node_modules/mime-types/**",
+      "node_modules/ms/**",
+      "node_modules/onnxruntime-common/**",
+      "node_modules/onnxruntime-node/**",
+      "node_modules/phonemizer/**",
+      "node_modules/proxy-from-env/**",
+      "node_modules/quick-lru/**",
+      "node_modules/resolve-alpn/**",
+      "node_modules/sharp/**",
+      "node_modules/tiktok-live-api-sdk/**",
+      "node_modules/tiktok-live-connector/**",
+      "node_modules/tiktok-live-proto/**",
+      "node_modules/typed-emitter/**",
+      "node_modules/ws/**",
+      "node_modules/youtube-dl-exec/**"
     ],
     "win": {
       "target": [
-        "portable"
+        "nsis"
       ],
       "icon": "assets/icon.ico",
       "signAndEditExecutable": false,
       "requestedExecutionLevel": "asInvoker"
     },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Desktop Gremlin",
+      "artifactName": "Desktop Gremlin Setup ${version}.exe",
+      "uninstallDisplayName": "Desktop Gremlin"
+    },
     "portable": {
-      "artifactName": "Virtual Pet ${version}.exe"
+      "artifactName": "Desktop Gremlin ${version} Portable.exe"
     }
   },
   "keywords": [
-    "virtual-pet",
-    "desktop",
+    "desktop-gremlin",
+    "desktop-pet",
     "electron"
   ],
   "author": "Kurizu",
@@ -63,12 +152,17 @@
   "dependencies": {
     "@discordjs/voice": "^0.19.2",
     "discord.js": "^14.27.0",
+    "ffmpeg-static": "^5.3.0",
     "koffi": "^3.0.2",
+    "kokoro-js": "^1.2.1",
     "mineflayer": "^4.39.0",
     "mineflayer-collectblock": "^1.6.0",
     "mineflayer-pathfinder": "^2.4.5",
+    "msedge-tts": "^2.1.1",
     "opusscript": "^0.0.8",
     "play-dl": "^1.9.7",
+    "tiktok-live-connector": "^2.5.0",
+    "ws": "^8.22.0",
     "youtube-dl-exec": "^3.1.15"
   }
 }

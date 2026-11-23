@@ -35,6 +35,7 @@ const PET_DEFAULTS = {
   gifGreet: { mode: 'shuffle', files: [] },
   gifGiftGive: { mode: 'shuffle', files: [] },
   gifGiftReceive: { mode: 'shuffle', files: [] },
+  gifThinking: { mode: 'shuffle', files: [] },
   characterPack: '',
   attackAnimMs: 800,
   textIdle: '',
@@ -56,6 +57,7 @@ const PET_DEFAULTS = {
   textWatch: '',
   textGame: '',
   textGameFail: '',
+  textSlam: '',
   textVictory: '',
   textGift: '',
   textGiftThanks: '',
@@ -71,11 +73,25 @@ const PET_DEFAULTS = {
   speechSoundEnabled: false,
   speechSoundIdleOnly: false,
   speechSoundVolume: 70,
+  hearMicDeviceId: '',
+  voiceHearEnabled: false,
+  voiceHearModel: 'gemini-2.5-flash',
+  textBleepsEnabled: true,
+  textBleepsVolume: 70,
+  textTypewriterEnabled: true,
+  textAnim: 'pop',
   contextReactionsEnabled: true,
   contextReactionCooldownSec: 45,
+  slingEnabled: true,
+  slingForce: 0.1,
+  slingBounce: 0.7,
   idleSleepEnabled: true,
   idleSitEnabled: true,
   idleSmallWalkEnabled: true,
+  sleepScheduleEnabled: false,
+  sleepStart: '23:00',
+  sleepEnd: '07:00',
+  playMode: false,
   idleVarietyChance: 0.35,
   smallWalkMinSec: 3,
   smallWalkMaxSec: 12,
@@ -100,14 +116,26 @@ const PET_DEFAULTS = {
   prankBsod: true,
   prankImage: '',
   textProactive: '',
-  grabButton: 'right',
+  textHearAck: 'yes? what is it?~',
+  grabButton: 'left',
   ownerName: '',
   aiPersonality: '',
+  aiPersonalityPreset: 'custom',
+  aiRestrictionMode: 'uncensored',
+  aiRestrictions: '',
+  aiAllowRoleplay: false,
   chaosCloseApps: false,
   chaosCloseChance: 0.12,
   musicDanceEnabled: false,
   musicThreshold: 35,
   audioInputDeviceId: '',
+  hearMicDeviceId: '',
+  voiceHearEnabled: false,
+  voiceHearModel: 'gemini-2.5-flash',
+  voiceHearProvider: 'gemini',
+  voiceHearKey: '',
+  voiceWakeWords: '',
+  textHearAck: 'yes? what is it?~',
   speechTop: 300,
   speechLeft: 26,
   speechMaxWidth: 170,
@@ -139,6 +167,27 @@ const APP_DEFAULTS = {
   activePetId: 'pet-1',
   multiPetInteractions: true,
   petCollisionGap: 20,
+  multiMonitor: false,
+  freePlacement: false,
+  forceDpiScale: true,
+  showDebugBounds: false,
+  vtsEnabled: false,
+  vtsPort: 8001,
+  vtsToken: '',
+  vtsHotkeyTalk: '',
+  vtsHotkeyVictory: '',
+  vtsHotkeyDefeat: '',
+  vtsHotkeyDance: '',
+  vtsHotkeyGrab: '',
+  vtsLipSync: true,
+  vtsMouseLook: false,
+  vtsIdle: true,
+  vtsJamSens: 1,
+  vtsJamSmooth: 0.12,
+  vtsJamSmile: true,
+  vtsHidePet: true,
+  vtsSubtitles: true,
+  vtsIdle: true,
   gameLowImpactEnabled: true,
   hidePetsWhileGaming: false,
   gameProcessWatchEnabled: true,
@@ -158,6 +207,44 @@ const APP_DEFAULTS = {
   aiProvider: 'custom',
   aiOllamaModel: 'llama3.1:8b',
   aiFallback: true,
+  discordEnabled: false,
+  discordToken: '',
+  discordChannelId: '',
+
+  discordOwnerId: '',
+  tiktokEnabled: false,
+  tiktokUsername: '',
+  tiktokReplyCooldownSec: 20,
+  tiktokReactGifts: true,
+  tiktokSignKey: '',
+  mcHost: '',
+  mcPort: 25565,
+  mcUsername: 'Pet',
+  mcAuth: 'offline',
+  mcFollow: '',
+  mcAutoReconnect: true,
+  mcSpeakChat: true,
+  spotifyClientId: '',
+  spotifyClientSecret: '',
+  youtubeCookie: '',
+  aiAgentEnabled: true,
+  aiAgentMode: false,
+  aiAgentModel: '',
+  agentShell: true,
+  visionMode: 'off',
+  visionLocalModel: 'qwen2.5vl:3b',
+  visionCloudModel: '',
+  visionEndpoint: '',
+  visionKey: '',
+  visionCooldownSec: 45,
+  visionGameLook: true,
+  visionGameIntervalSec: 60,
+  visionQuality: 'balanced',
+  visionCrop: true,
+  visionContrast: 25,
+  visionLowVram: true,
+  petQuality: 'original',
+  agentApps: 'calc\nnotepad\nmspaint',
   relationships: {},
   remoteEnabled: false,
   remotePort: 3535,
@@ -187,6 +274,7 @@ const SLOT_PREVIEW = {
   greet: 'previewGreet',
   giftGive: 'previewGiftGive',
   giftReceive: 'previewGiftReceive',
+  thinking: 'previewThinking',
 };
 
 const SLOT_NAME = {
@@ -204,6 +292,7 @@ const SLOT_NAME = {
   greet: 'nameGreet',
   giftGive: 'nameGiftGive',
   giftReceive: 'nameGiftReceive',
+  thinking: 'nameThinking',
 };
 
 const SLOT_CONFIG_KEY = {
@@ -221,6 +310,7 @@ const SLOT_CONFIG_KEY = {
   greet: 'gifGreet',
   giftGive: 'gifGiftGive',
   giftReceive: 'gifGiftReceive',
+  thinking: 'gifThinking',
 };
 
 function asAvatarSlot(v) {
@@ -292,13 +382,14 @@ function readPetFields() {
     textWatch: $('textWatch').value,
     textGame: $('textGame').value,
     textGameFail: $('textGameFail').value,
+    textSlam: $('textSlam').value,
     textVictory: $('textVictory').value,
     textGift: $('textGift').value,
     textGiftThanks: $('textGiftThanks').value,
     voiceVoxEnabled: $('voiceVoxEnabled').checked,
-    voiceVoxBackend: $('voiceVoxBackend').value === 'builtin' ? 'builtin' : 'external',
+    voiceVoxBackend: ['builtin', 'edge', 'kokoro'].includes($('voiceVoxBackend').value) ? $('voiceVoxBackend').value : 'external',
     voiceVoxUrl: $('voiceVoxUrl').value.trim() || 'http://127.0.0.1:50021',
-    voiceVoxSpeaker: parseInt($('voiceVoxSpeaker').value, 10) || 0,
+    voiceVoxSpeaker: /^\d+$/.test($('voiceVoxSpeaker').value) ? parseInt($('voiceVoxSpeaker').value, 10) : $('voiceVoxSpeaker').value,
     voiceVoxSpeed: parseFloat($('voiceVoxSpeed').value) || 1.0,
     voiceVoxVolume: Math.max(0, Math.min(100, parseInt($('voiceVoxVolume').value, 10) || 0)),
     voiceVoxIdleOnly: $('voiceVoxIdleOnly').checked,
@@ -306,11 +397,22 @@ function readPetFields() {
     speechSoundEnabled: $('speechSoundEnabled').checked,
     speechSoundIdleOnly: $('speechSoundIdleOnly').checked,
     speechSoundVolume: parseInt($('speechSoundVolume').value, 10) || 0,
+    hearMicDeviceId: $('hearMicDeviceId') ? $('hearMicDeviceId').value || '' : '',
+    voiceHearEnabled: $('voiceHearEnabled').checked,
+    voiceHearModel: $('voiceHearModel').value.trim() || 'gemini-2.5-flash',
+    textBleepsEnabled: $('textBleepsEnabled').checked,
+    textBleepsVolume: parseInt($('textBleepsVolume').value, 10) || 0,
+    textTypewriterEnabled: $('textTypewriterEnabled').checked,
+    textAnim: ['typewriter', 'pop', 'fade', 'wave', 'rainbow', 'off'].includes($('textAnim').value) ? $('textAnim').value : 'pop',
     contextReactionsEnabled: $('contextReactionsEnabled').checked,
     contextReactionCooldownSec: parseInt($('contextReactionCooldownSec').value, 10),
     idleSleepEnabled: $('idleSleepEnabled').checked,
     idleSitEnabled: $('idleSitEnabled').checked,
     idleSmallWalkEnabled: $('idleSmallWalkEnabled').checked,
+    sleepScheduleEnabled: $('sleepScheduleEnabled') ? $('sleepScheduleEnabled').checked : false,
+    sleepStart: /^([01]\d|2[0-3]):[0-5]\d$/.test($('sleepStart') ? $('sleepStart').value : '') ? $('sleepStart').value : '23:00',
+    sleepEnd: /^([01]\d|2[0-3]):[0-5]\d$/.test($('sleepEnd') ? $('sleepEnd').value : '') ? $('sleepEnd').value : '07:00',
+    playMode: $('playMode') ? $('playMode').checked : false,
     idleVarietyChance: parseFloat($('idleVarietyChance').value),
     smallWalkMinSec: parseInt($('smallWalkMinSec').value, 10) || 8,
     smallWalkMaxSec: parseInt($('smallWalkMaxSec').value, 10) || 22,
@@ -330,14 +432,33 @@ function readPetFields() {
     prankChanceJumpscare: readPct('prankChanceJumpscare'),
     proactiveChatter: $('proactiveChatter').checked,
     textProactive: $('textProactive').value,
+    textHearAck: $('textHearAck').value.trim().slice(0, 120) || 'yes? what is it?~',
     grabButton: $('grabButton').value === 'left' ? 'left' : 'right',
     ownerName: $('ownerName').value.trim().slice(0, 30),
-    aiPersonality: $('aiPersonality').value.trim().slice(0, 500),
+    aiPersonality: $('aiPersonality').value.trim().slice(0, 2500),
+    aiPersonalityPreset: $('aiPersonalityPreset') ? $('aiPersonalityPreset').value || 'custom' : 'custom',
+    aiRestrictionMode: ($('aiRestrictionMode') && ['family', 'mature', 'uncensored', 'model'].includes($('aiRestrictionMode').value))
+      ? $('aiRestrictionMode').value
+      : 'uncensored',
+    aiRestrictions: $('aiRestrictions') ? $('aiRestrictions').value.trim().slice(0, 2000) : '',
+    aiAllowRoleplay: $('aiAllowRoleplay') ? $('aiAllowRoleplay').checked : false,
     chaosCloseApps: $('chaosCloseApps').checked,
+    slamEnabled: $('slamEnabled').checked,
+    slamSensitivity: parseFloat($('slamSensitivity').value) || 1,
+    slamSilenceSec: Math.max(5, Math.min(180, parseInt($('slamSilenceSec').value, 10) || 45)),
+    slingEnabled: $('slingEnabled').checked,
+    slingForce: Math.max(0.03, Math.min(0.25, parseFloat($('slingForce').value) || 0.1)),
+    slingBounce: Math.max(0.3, Math.min(0.95, parseFloat($('slingBounce').value) || 0.7)),
     chaosCloseChance: parseFloat($('chaosCloseChance').value),
     musicDanceEnabled: $('musicDanceEnabled').checked,
     musicThreshold: parseInt($('musicThreshold').value, 10),
-    audioInputDeviceId: '',
+  audioInputDeviceId: '',
+    hearMicDeviceId: $('hearMicDeviceId') ? $('hearMicDeviceId').value || '' : '',
+    voiceHearEnabled: $('voiceHearEnabled') ? $('voiceHearEnabled').checked : false,
+    voiceHearModel: $('voiceHearModel') ? $('voiceHearModel').value.trim() || 'gemini-2.5-flash' : 'gemini-2.5-flash',
+    voiceHearProvider: ($('voiceHearProvider') && ['gemini', 'groq', 'local'].includes($('voiceHearProvider').value)) ? $('voiceHearProvider').value : 'gemini',
+    voiceHearKey: $('voiceHearKey') ? $('voiceHearKey').value.trim() : '',
+    voiceWakeWords: $('voiceWakeWords') ? $('voiceWakeWords').value.split(',').map((s) => s.trim()).filter(Boolean).join(', ').slice(0, 120) : '',
     audioSourceMode: 'system',
     speechTop: parseInt($('speechTop').value, 10),
     speechLeft: parseInt($('speechLeft').value, 10),
@@ -378,7 +499,26 @@ function readForm() {
     hidePetsWhileGaming: $('hidePetsWhileGaming').checked,
     showSettingsOnStart: $('showSettingsOnStart').checked,
     multiPetInteractions: $('multiPetInteractions').checked,
-    petCollisionGap: parseInt($('petCollisionGap').value, 10) || 20,
+    petCollisionGap: parseInt($('petCollisionGap').value, 10) || 20,    multiMonitor: $('multiMonitor').checked,
+    freePlacement: $('freePlacement').checked,    showDebugBounds: $('showDebugBounds').checked,    vtsEnabled: vtsEnabled.checked,
+    vtsPort: Math.max(1, Math.min(65535, parseInt(vtsPort.value, 10) || 8001)),
+    vtsHotkeyTalk: vtsHotkeyTalk.value.trim(),
+    vtsHotkeyVictory: vtsHotkeyVictory.value.trim(),
+    vtsHotkeyDefeat: vtsHotkeyDefeat.value.trim(),
+    vtsHotkeyDance: vtsHotkeyDance.value.trim(),
+    vtsHotkeyGrab: vtsHotkeyGrab.value.trim(),
+    vtsLipSync: vtsLipSync.checked,
+    vtsJamSens: $('vtsJamSens') ? Math.max(0.2, Math.min(2.5, parseFloat($('vtsJamSens').value) || 1)) : 1,
+    vtsJamSmooth: $('vtsJamSmooth') ? Math.max(0.03, Math.min(0.4, parseFloat($('vtsJamSmooth').value) || 0.12)) : 0.12,
+    vtsJamSmile: $('vtsJamSmile') ? $('vtsJamSmile').checked : true,
+    vtsHidePet: $('vtsHidePet') ? $('vtsHidePet').checked : true,
+    vtsSubtitles: $('vtsSubtitles') ? $('vtsSubtitles').checked : true,
+    vtsMouseLook: $('vtsMouseLook') ? $('vtsMouseLook').checked : false,
+    vtsIdle: $('vtsIdle') ? $('vtsIdle').checked : true,
+
+
+    forceDpiScale: $('forceDpiScale').checked,
+
     gameVictoryPatterns: $('gameVictoryPatterns').value,
     gameProcessWatchEnabled: $('gameProcessWatchEnabled').checked,
     gameProcessList: $('gameProcessList').value,
@@ -397,6 +537,47 @@ function readForm() {
     aiProvider: $('aiProvider').value === 'ollama' ? 'ollama' : 'custom',
     aiOllamaModel: $('aiOllamaModel').value.trim() || 'llama3.1:8b',
     aiFallback: $('aiFallback').checked,
+    discordEnabled: $('discordEnabled').checked,
+    discordToken: $('discordToken').value,
+    discordChannelId: $('discordChannelId').value.trim(),
+
+    discordOwnerId: $('discordOwnerId').value.trim(),
+    tiktokEnabled: $('tiktokEnabled').checked,
+    tiktokUsername: $('tiktokUsername').value.trim(),
+    tiktokReplyCooldownSec: Math.max(5, Math.min(120, parseInt($('tiktokReplyCooldownSec').value, 10) || 20)),
+    tiktokReactGifts: $('tiktokReactGifts').checked,
+    tiktokSignKey: $('tiktokSignKey').value.trim(),
+    mcHost: $('mcHost').value.trim(),
+    mcPort: Math.max(1, Math.min(65535, parseInt($('mcPort').value, 10) || 25565)),
+    mcUsername: $('mcUsername').value.trim() || 'Pet',
+    mcAuth: $('mcAuth')?.value === 'microsoft' ? 'microsoft' : 'offline',
+    mcFollow: $('mcFollow').value.trim(),
+    mcAutoReconnect: $('mcAutoReconnect').checked,
+    mcSpeakChat: $('mcSpeakChat').checked,
+    spotifyClientId: $('spotifyClientId').value.trim(),
+    spotifyClientSecret: $('spotifyClientSecret').value,
+    youtubeCookie: $('youtubeCookie').value,
+    // Keep the DJ slider in the saved form — otherwise every Save silently
+    // resets musicVolume to 100 and the next track jumps back to full blast.
+    musicVolume: Math.max(0, Math.min(100, parseInt($('djVolume')?.value, 10) || 0)),
+    aiAgentEnabled: $('aiAgentEnabled').checked,
+    aiAgentMode: $('aiAgentMode').checked,
+    aiAgentModel: $('aiAgentModel').value.trim(),
+    agentShell: $('agentShell').checked,
+    visionMode: $('visionMode')?.value === 'local' ? 'local' : ($('visionMode')?.value === 'cloud' ? 'cloud' : 'off'),
+    visionEndpoint: $('visionEndpoint').value.trim(),
+    visionKey: $('visionKey').value,
+    visionLocalModel: $('visionLocalModel').value.trim(),
+    visionCloudModel: $('visionCloudModel').value.trim(),
+    visionCooldownSec: parseInt($('visionCooldownSec').value, 10) || 45,
+    visionGameLook: $('visionGameLook').checked,
+    visionGameIntervalSec: Math.max(30, Math.min(600, parseInt($('visionGameIntervalSec').value, 10) || 60)),
+    visionQuality: ['fast', 'sharp'].includes($('visionQuality')?.value) ? $('visionQuality').value : 'balanced',
+    visionCrop: $('visionCrop').checked,
+    visionContrast: parseInt($('visionContrast').value, 10) || 0,
+    visionLowVram: $('visionLowVram') ? $('visionLowVram').checked : true,
+    petQuality: ['medium', 'low', 'verylow'].includes($('petQuality')?.value) ? $('petQuality').value : 'original',
+    agentApps: $('agentApps').value,
     remoteEnabled: $('remoteEnabled').checked,
     remotePort: Math.max(1024, Math.min(65535, parseInt($('remotePort').value, 10) || 3535)),
     remoteToken: $('remoteToken').value.trim().slice(0, 128),
@@ -422,6 +603,11 @@ const PANEL_META = {
   'panel-games': { title: 'Games', sub: 'How she notices YouTube and games. Pick one method.' },
   'panel-dance': { title: 'Music & dance', sub: 'Dance to your default Windows speaker output.' },
   'panel-chaos': { title: 'Chaos', sub: 'Controls, idle chatter, and optional chaos mode.' },
+  'panel-discord': { title: 'Discord', sub: 'Bot token, voice music, and connection status.' },
+  'panel-dj': { title: 'DJ', sub: 'Live voice-channel playback control.' },
+  'panel-mc': { title: 'Minecraft', sub: 'In-game bot: follow, chat, and commands.' },
+  'panel-vts': { title: 'VTube', sub: 'Live2D hotkeys and voice lip-sync.' },
+  'panel-stats': { title: 'Stats', sub: 'Live CPU, RAM and GPU load.' },
 };
 
 const THEMES = ['pink', 'purple', 'dark', 'light'];
@@ -440,6 +626,9 @@ function applyTheme(name) {
   document.documentElement.dataset.theme = theme;
   try {
     localStorage.setItem('vp-theme', theme);
+  } catch (_) {}
+  try {
+    window.petAPI.setTheme?.(theme);
   } catch (_) {}
   document.querySelectorAll('.theme-swatch').forEach((b) => {
     b.classList.toggle('active', b.dataset.theme === theme);
@@ -608,7 +797,7 @@ function setupSpeechSoundRows() {
 function setVoxSpeakerOptions(selectedId, speakers = null) {
   const sel = $('voiceVoxSpeaker');
   if (!sel) return;
-  const list = speakers || [...sel.options].map((o) => ({ id: Number(o.value), label: o.textContent }));
+  const list = speakers || [...sel.options].map((o) => ({ id: o.value, label: o.textContent }));
   sel.innerHTML = '';
   if (!list.length) {
     const opt = document.createElement('option');
@@ -621,17 +810,18 @@ function setVoxSpeakerOptions(selectedId, speakers = null) {
     const opt = document.createElement('option');
     opt.value = String(sp.id);
     opt.textContent = sp.label;
-    if (Number(sp.id) === Number(selectedId)) opt.selected = true;
+    if (String(sp.id) === String(selectedId) || (Number.isFinite(Number(sp.id)) && Number(sp.id) === Number(selectedId))) opt.selected = true;
     sel.appendChild(opt);
   }
   // Never silently switch voices: if the saved ID isn't in the current list
   // (e.g. an extra VVM voice while on the external backend), keep a
   // placeholder so saving settings can't overwrite it with index 0.
-  const savedId = Number(selectedId);
-  if (!list.some((sp) => Number(sp.id) === savedId) && Number.isFinite(savedId)) {
+  const wanted = selectedId == null || String(selectedId) === 'NaN' ? '' : String(selectedId);
+  const found = list.some((sp) => String(sp.id) === wanted || (Number.isFinite(Number(sp.id)) && Number(sp.id) === Number(wanted)));
+  if (!found && wanted) {
     const opt = document.createElement('option');
-    opt.value = String(savedId);
-    opt.textContent = `Speaker ${savedId} (not in current voice list)`;
+    opt.value = wanted;
+    opt.textContent = `Speaker ${wanted} (not in current voice list)`;
     opt.selected = true;
     sel.appendChild(opt);
   } else if (![...sel.options].some((o) => o.selected)) {
@@ -640,8 +830,15 @@ function setVoxSpeakerOptions(selectedId, speakers = null) {
 }
 
 function toggleVoxBuiltinBox() {
+  const backend = $('voiceVoxBackend')?.value || 'external';
   const box = $('voxBuiltinBox');
-  if (box) box.style.display = $('voiceVoxBackend')?.value === 'builtin' ? '' : 'none';
+  if (box) box.style.display = backend === 'builtin' ? '' : 'none';
+  const urlRow = $('voiceVoxUrl')?.closest('.speech-field');
+  if (urlRow) urlRow.style.display = backend === 'external' ? '' : 'none';
+  const devRow = $('voiceDevice')?.closest('.speech-field');
+  if (devRow) devRow.style.display = backend === 'builtin' ? '' : 'none';
+  const gpu = $('voxGpuBox');
+  if (gpu && backend !== 'builtin') gpu.style.display = 'none';
 }
 
 function toggleAiRows() {
@@ -676,22 +873,25 @@ let voxBusy = false;
 
 async function doRefreshVoxSpeakers() {
   const el = $('voxStatus');
+  const wanted = $('voiceVoxSpeaker')?.value === 'NaN' ? '' : $('voiceVoxSpeaker')?.value;
   if (voxBusy) {
     if (el) el.textContent = 'Please wait — a download is in progress…';
     return;
   }
   await window.petAPI.saveConfig(readForm());
   if (el) el.textContent = 'Contacting voice…';
-  const result = await window.petAPI.voxSpeakers();
+  const result = await window.petAPI.voxSpeakers($('voiceVoxBackend')?.value || 'external');
     if (result?.ok) {
-      setVoxSpeakerOptions(getActivePet().voiceVoxSpeaker ?? 1, result.speakers);
+      setVoxSpeakerOptions(wanted || getActivePet().voiceVoxSpeaker || 1, result.speakers);
       if (el) {
         const models = (result.models || []).join(', ');
         el.textContent = `Found ${result.speakers.length} voices${models ? ` (${models})` : ''}.`;
       }
     } else if (el) {
     const detail = result?.error ? ` (${result.error})` : '';
-    el.textContent = `Voice list failed${detail}. Built-in: download it above. External: launch VOICEVOX.`;
+    const vbb = getActivePet().voiceVoxBackend;
+    const vhint = vbb === 'builtin' ? ' Built-in: download it above.' : vbb === 'edge' ? ' Edge needs internet.' : vbb === 'kokoro' ? ' Kokoro loads its model on first use.' : ' External: launch VOICEVOX.';
+    el.textContent = `Voice list failed${detail}.${vhint}`;
   }
 }
 
@@ -788,6 +988,101 @@ function showSettingsPanel(panelId) {
   try {
     localStorage.setItem('vp-settings-panel', panelId);
   } catch (_) {}
+}
+
+// Stats tab: live CPU/RAM/VRAM graphs, ~2min of 2s samples. Polls only
+// while the Stats panel is open.
+const STAT_N = 60;
+const statHist = { cpu: [], mem: [], gpu: [] };
+let statTimer = null;
+
+function fmtStatMB(mb) {
+  if (!isFinite(mb) || mb < 0) return '—';
+  return mb >= 1024 ? `${(mb / 1024).toFixed(1)} GB` : `${Math.round(mb)} MB`;
+}
+
+function drawSpark(id, data, max, color) {
+  const cv = $(id);
+  if (!cv) return;
+  const ctx = cv.getContext('2d');
+  const W = cv.width;
+  const H = cv.height;
+  ctx.clearRect(0, 0, W, H);
+  ctx.strokeStyle = 'rgba(255,255,255,0.14)';
+  ctx.lineWidth = 1;
+  for (let g = 1; g < 4; g++) {
+    ctx.beginPath();
+    ctx.moveTo(0, (H * g) / 4);
+    ctx.lineTo(W, (H * g) / 4);
+    ctx.stroke();
+  }
+  if (!data.length) return;
+  const top = Math.max(1, max);
+  const xAt = (i) => (i / (STAT_N - 1)) * W;
+  const yAt = (v) => H - 2 - Math.max(0, Math.min(1, v / top)) * (H - 4);
+  ctx.beginPath();
+  data.forEach((v, i) => (i ? ctx.lineTo(xAt(i), yAt(v)) : ctx.moveTo(xAt(i), yAt(v))));
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  ctx.lineTo(xAt(data.length - 1), H);
+  ctx.lineTo(xAt(0), H);
+  ctx.closePath();
+  ctx.fillStyle = color + '2e';
+  ctx.fill();
+}
+
+function pushStat(arr, v) {
+  arr.push(v);
+  while (arr.length > STAT_N) arr.shift();
+}
+
+async function pollStatsGraphs() {
+  if (document.hidden || !$('panel-stats')?.classList.contains('active')) return;
+  if (typeof window.petAPI?.statsSample !== 'function') {
+    const el = $('statCpuLine');
+    if (el && !/restart/i.test(el.textContent || '')) {
+      el.textContent = 'Stats backend missing — fully quit the app (tray icon too) and restart it.';
+    }
+    return;
+  }
+  let s = null;
+  try {
+    s = await window.petAPI.statsSample();
+  } catch (_) {}
+  if (!s || !s.ok) {
+    const el = $('statCpuLine');
+    if (el) el.textContent = 'No data — is the main app still running?';
+    return;
+  }
+  const cpu = Number(s.cpu) || 0;
+  const mem = Number(s.appMemMB) || 0;
+  pushStat(statHist.cpu, cpu);
+  pushStat(statHist.mem, mem);
+  const cpuMax = Math.max(100, ...statHist.cpu);
+  const memMax = Math.max(Number(s.sysTotalMB) || 0, ...statHist.mem, 1);
+  $('statCpuLine').textContent = `CPU ${cpu.toFixed(1)}% (all app processes)`;
+  const sysUsed = (Number(s.sysTotalMB) || 0) - (Number(s.sysFreeMB) || 0);
+  $('statMemLine').textContent = `App RAM ${fmtStatMB(mem)} · system ${fmtStatMB(sysUsed)} / ${fmtStatMB(s.sysTotalMB || 0)}`;
+  drawSpark('statCpu', statHist.cpu, cpuMax, '#8e24aa');
+  drawSpark('statMem', statHist.mem, memMax, '#d81b60');
+  if (s.gpu && isFinite(Number(s.gpu.usedMB))) {
+    const g = s.gpu;
+    pushStat(statHist.gpu, Number(g.usedMB) || 0);
+    const hasTotal = isFinite(Number(g.totalMB)) && Number(g.totalMB) > 0;
+    $('statGpuLine').textContent = hasTotal
+      ? `${g.name || 'GPU'} · ${Number(g.util || 0).toFixed(0)}% load · VRAM ${fmtStatMB(g.usedMB)} / ${fmtStatMB(g.totalMB)}`
+      : `${g.name || 'GPU'} · ${Number(g.util || 0).toFixed(0)}% load · VRAM ${fmtStatMB(g.usedMB)} used`;
+    drawSpark('statGpu', statHist.gpu, hasTotal ? Number(g.totalMB) : Math.max(...statHist.gpu, 1), '#3949ab');
+  } else {
+    $('statGpuLine').textContent = 'GPU n/a — no readable GPU counters on this PC.';
+    drawSpark('statGpu', [], 1, '#3949ab');
+  }
+}
+
+function setupStatsGraphs() {
+  if (statTimer) return;
+  statTimer = setInterval(pollStatsGraphs, 2000);
 }
 
 function setupSettingsNav() {
@@ -929,7 +1224,7 @@ function tickSystemAudio() {
 
 async function connectSystemAudio() {
   if (!window.petAPI?.sendSystemAudioLevel) {
-    setStatus('Run Virtual Pet.exe — do not open this page in a browser.');
+    setStatus('Run Desktop Gremlin.exe — do not open this page in a browser.');
     return;
   }
 
@@ -1147,6 +1442,7 @@ function updateAvatarPreviews(pet) {
         greet: 'None (uses pet)',
         giftGive: 'None (uses move)',
         giftReceive: 'None (uses pet)',
+        thinking: 'None (uses idle)',
       };
       label.textContent = fallbacks[slot];
     }
@@ -1434,6 +1730,84 @@ function renderBonds(config) {
   }
 }
 
+function renderMusicState(st) {
+  const status = $('djStatus');
+  const track = $('djTrack');
+  const queue = $('djQueue');
+  const loopBtn = $('djLoop');
+  const playBtn = $('djPlayPause');
+  if (!status || !track || !queue) return;
+  if (!st || !st.connected) {
+    status.textContent = 'Not connected — join a voice channel with !join.';
+    track.textContent = '—';
+    queue.innerHTML = '';
+    const noArt = $('djArt');
+    if (noArt) {
+      noArt.removeAttribute('src');
+      noArt.hidden = true;
+    }
+    if (loopBtn) loopBtn.textContent = 'Loop: off';
+    if (playBtn) playBtn.textContent = 'Play / Pause';
+    return;
+  }
+  status.textContent = st.paused ? 'Paused.' : 'Playing.';
+  track.textContent = st.current || '(between tracks)';
+  const art = $('djArt');
+  if (art) {
+    if (st.art) {
+      if (art.getAttribute('src') !== st.art) art.setAttribute('src', st.art);
+      art.hidden = false;
+    } else {
+      art.removeAttribute('src');
+      art.hidden = true;
+    }
+  }
+  queue.innerHTML = '';
+  const items = st.queue || [];
+  if (!items.length) {
+    const hint = document.createElement('div');
+    hint.className = 'ocr-log-row';
+    hint.textContent = 'Queue is empty.';
+    queue.appendChild(hint);
+  }
+  items.forEach((t, i) => {
+    const row = document.createElement('div');
+    row.className = 'ocr-log-row';
+    const title = (t && typeof t === 'object') ? t.title : t;
+    const thumb = (t && typeof t === 'object' && t.art) ? t.art : '';
+    if (thumb) {
+      const img = document.createElement('img');
+      img.className = 'dj-qthumb';
+      img.setAttribute('src', thumb);
+      img.alt = '';
+      row.appendChild(img);
+    }
+    const span = document.createElement('span');
+    span.textContent = `${i + 1}. ${title}`;
+    row.appendChild(span);
+    queue.appendChild(row);
+  });
+  if (st.extra) {
+    const more = document.createElement('div');
+    more.className = 'ocr-log-row';
+    more.textContent = `…+${st.extra} more`;
+    queue.appendChild(more);
+  }
+  if (loopBtn) loopBtn.textContent = `Loop: ${st.loop || 'off'}`;
+  if (playBtn) playBtn.textContent = st.paused ? 'Resume' : 'Pause';
+  const vol = $('djVolume');
+  const volVal = $('djVolumeVal');
+  if (vol && document.activeElement !== vol) vol.value = st.volume ?? 100;
+  if (volVal) volVal.textContent = st.volume ?? 100;
+}
+
+async function refreshMusic() {
+  if (!window.petAPI.musicState) return;
+  try {
+    renderMusicState(await window.petAPI.musicState());
+  } catch (_) {}
+}
+
 async function renderOcrLog() {
   const box = $('ocrLog');
   if (!box || !window.petAPI.getOcrLog) return;
@@ -1556,6 +1930,25 @@ function updateDashHeader(fullConfig, pet) {
   } catch (_) {}
 }
 
+function updateDiscordStatus(st) {
+  const el = $('discordStatus');
+  if (!el || !st) return;
+  if (st.state === 'online') el.textContent = `Discord: ● online as ${st.username || 'bot'}`;
+  else if (st.state === 'connecting') el.textContent = 'Discord: connecting…';
+  else if (st.state === 'offline') el.textContent = `Discord: ○ offline${st.detail ? ` (${st.detail})` : ''}`;
+  else el.textContent = 'Discord: off (enable above to run the bot)';
+}
+
+function updateMcStatus(st) {
+  const el = $('mcStatus');
+  if (!el || !st) return;
+  if (st.state === 'online') el.textContent = `● in game${st.following ? `, following ${st.following}` : ''}${st.detail ? ` (${st.detail})` : ''}`;
+  else if (st.state === 'connecting') el.textContent = `Connecting…${st.detail ? ` ${st.detail}` : ''}`;
+  else if (st.state === 'auth') el.textContent = `Microsoft login needed: ${st.detail || ''}`;
+  else if (st.state === 'offline') el.textContent = `○ offline${st.detail ? ` (${st.detail})` : ''}`;
+  else el.textContent = 'Not connected.';
+}
+
 function updateOcrPowerUI(enabled) {
   const btn = $('ocrPowerBtn');
   const status = $('ocrPowerStatus');
@@ -1566,6 +1959,23 @@ function updateOcrPowerUI(enabled) {
   status.textContent = enabled ? 'Screen watch is ON — scanning continuously' : 'Screen watch is OFF';
   status.classList.toggle('on', enabled);
   status.classList.toggle('off', !enabled);
+}
+
+let lastVisionMode = 'local';
+
+function updateQuickToggles() {
+  const vm = $('visionMode')?.value || 'off';
+  if (vm !== 'off') lastVisionMode = vm;
+  const setBtn = (id, on, labelOn, labelOff) => {
+    const btn = $(id);
+    if (!btn) return;
+    btn.classList.toggle('on', !!on);
+    btn.classList.toggle('off', !on);
+    btn.textContent = on ? labelOn : labelOff;
+  };
+  setBtn('quickVision', vm !== 'off', 'Vision ON', 'Vision OFF');
+  setBtn('quickOcr', $('ocrPowerBtn')?.classList.contains('on'), 'Screen watch ON', 'Screen watch OFF');
+  setBtn('quickVoice', !!getActivePet().voiceVoxEnabled, 'Voice ON', 'Voice OFF');
 }
 
 function fillForm(fullConfig) {
@@ -1582,6 +1992,27 @@ function fillForm(fullConfig) {
   updateDashHeader(fullConfig, pet);
   try { renderOcrLog(); } catch (_) {}
   $('petCollisionGap').value = fullConfig.petCollisionGap ?? 20;
+  $('multiMonitor').checked = !!fullConfig.multiMonitor;
+  $('freePlacement').checked = !!fullConfig.freePlacement;
+  $('forceDpiScale').checked = !!fullConfig.forceDpiScale;  showDebugBounds.checked = !!fullConfig.showDebugBounds;
+  // VTube section (was write-only before — loading it stops saves from
+  // silently resetting the user's VTS setup to defaults).
+  if ($('vtsEnabled')) $('vtsEnabled').checked = !!fullConfig.vtsEnabled;
+  if ($('vtsPort')) $('vtsPort').value = fullConfig.vtsPort ?? 8001;
+  if ($('vtsHotkeyTalk')) $('vtsHotkeyTalk').value = fullConfig.vtsHotkeyTalk || '';
+  if ($('vtsHotkeyVictory')) $('vtsHotkeyVictory').value = fullConfig.vtsHotkeyVictory || '';
+  if ($('vtsHotkeyDefeat')) $('vtsHotkeyDefeat').value = fullConfig.vtsHotkeyDefeat || '';
+  if ($('vtsHotkeyDance')) $('vtsHotkeyDance').value = fullConfig.vtsHotkeyDance || '';
+  if ($('vtsHotkeyGrab')) $('vtsHotkeyGrab').value = fullConfig.vtsHotkeyGrab || '';
+  if ($('vtsLipSync')) $('vtsLipSync').checked = fullConfig.vtsLipSync !== false;
+  if ($('vtsMouseLook')) $('vtsMouseLook').checked = !!fullConfig.vtsMouseLook;
+  if ($('vtsIdle')) $('vtsIdle').checked = fullConfig.vtsIdle !== false;
+  if ($('vtsJamSens')) $('vtsJamSens').value = isFinite(Number(fullConfig.vtsJamSens)) ? fullConfig.vtsJamSens : 1;
+  if ($('vtsJamSmooth')) $('vtsJamSmooth').value = isFinite(Number(fullConfig.vtsJamSmooth)) ? fullConfig.vtsJamSmooth : 0.12;
+  if ($('vtsJamSmile')) $('vtsJamSmile').checked = fullConfig.vtsJamSmile !== false;
+  if ($('vtsHidePet')) $('vtsHidePet').checked = fullConfig.vtsHidePet !== false;
+  if ($('vtsSubtitles')) $('vtsSubtitles').checked = fullConfig.vtsSubtitles !== false;
+
   $('name').value = pet.name || 'Mochi';
   $('scale').value = pet.scale;
   $('moveSpeed').value = pet.moveSpeed;
@@ -1614,6 +2045,50 @@ function fillForm(fullConfig) {
   $('aiProvider').value = fullConfig.aiProvider === 'ollama' ? 'ollama' : 'custom';
   $('aiOllamaModel').value = fullConfig.aiOllamaModel || 'llama3.1:8b';
   $('aiFallback').checked = fullConfig.aiFallback !== false;
+  $('discordEnabled').checked = !!fullConfig.discordEnabled;
+  $('discordToken').value = fullConfig.discordToken || '';
+  $('discordChannelId').value = fullConfig.discordChannelId || '';
+
+  $('discordOwnerId').value = fullConfig.discordOwnerId || '';
+  $('tiktokEnabled').checked = !!fullConfig.tiktokEnabled;
+  $('tiktokUsername').value = fullConfig.tiktokUsername || '';
+  $('tiktokReplyCooldownSec').value = fullConfig.tiktokReplyCooldownSec ?? 20;
+  $('tiktokReplyCooldownSecVal').textContent = fullConfig.tiktokReplyCooldownSec ?? 20;
+  $('tiktokReactGifts').checked = fullConfig.tiktokReactGifts !== false;
+  $('tiktokSignKey').value = fullConfig.tiktokSignKey || '';
+
+  $('mcHost').value = fullConfig.mcHost || '';
+  $('mcPort').value = fullConfig.mcPort ?? 25565;
+  $('mcUsername').value = fullConfig.mcUsername || 'Pet';
+  $('mcAuth').value = fullConfig.mcAuth === 'microsoft' ? 'microsoft' : 'offline';
+  $('mcFollow').value = fullConfig.mcFollow || '';
+  $('mcAutoReconnect').checked = fullConfig.mcAutoReconnect !== false;
+  $('mcSpeakChat').checked = fullConfig.mcSpeakChat !== false;
+  $('spotifyClientId').value = fullConfig.spotifyClientId || '';
+  $('spotifyClientSecret').value = fullConfig.spotifyClientSecret || '';
+  $('youtubeCookie').value = fullConfig.youtubeCookie || '';
+  updateDiscordStatus({ state: fullConfig.discordEnabled ? 'unknown' : 'off' });
+  $('aiAgentEnabled').checked = fullConfig.aiAgentEnabled !== false;
+  $('aiAgentMode').checked = !!fullConfig.aiAgentMode;
+  $('aiAgentModel').value = fullConfig.aiAgentModel || '';
+  $('agentShell').checked = fullConfig.agentShell !== false;
+  $('visionMode').value = ['local', 'cloud'].includes(fullConfig.visionMode) ? fullConfig.visionMode : 'off';
+  $('visionLocalModel').value = fullConfig.visionLocalModel || 'qwen2.5vl:3b';
+  if ($('visionLowVram')) $('visionLowVram').checked = fullConfig.visionLowVram !== false;
+  $('visionCloudModel').value = fullConfig.visionCloudModel || '';
+  $('visionEndpoint').value = fullConfig.visionEndpoint || '';
+  $('visionKey').value = fullConfig.visionKey || '';
+  $('visionCooldownSec').value = fullConfig.visionCooldownSec ?? 45;
+  $('visionCooldownSecVal').textContent = fullConfig.visionCooldownSec ?? 45;
+  $('visionGameLook').checked = fullConfig.visionGameLook !== false;
+  $('visionGameIntervalSec').value = fullConfig.visionGameIntervalSec ?? 60;
+  $('visionGameIntervalSecVal').textContent = fullConfig.visionGameIntervalSec ?? 60;
+  $('visionQuality').value = ['fast', 'balanced', 'sharp'].includes(fullConfig.visionQuality) ? fullConfig.visionQuality : 'balanced';
+  $('visionCrop').checked = fullConfig.visionCrop !== false;
+  $('visionContrast').value = fullConfig.visionContrast ?? 25;
+  $('visionContrastVal').textContent = fullConfig.visionContrast ?? 25;
+  $('petQuality').value = ['medium', 'low', 'verylow'].includes(fullConfig.petQuality) ? fullConfig.petQuality : 'original';
+  $('agentApps').value = fullConfig.agentApps || 'calc\nnotepad\nmspaint';
   $('remoteEnabled').checked = !!fullConfig.remoteEnabled;
   $('remotePort').value = fullConfig.remotePort ?? 3535;
   if (!String($('remoteToken').value || '').trim() && fullConfig.remoteToken) {
@@ -1653,6 +2128,14 @@ function fillForm(fullConfig) {
   $('grabButton').value = pet.grabButton === 'left' ? 'left' : 'right';
   $('ownerName').value = pet.ownerName || '';
   $('aiPersonality').value = pet.aiPersonality || '';
+  if ($('aiPersonalityPreset')) $('aiPersonalityPreset').value = pet.aiPersonalityPreset || 'custom';
+  if ($('aiRestrictionMode')) {
+    $('aiRestrictionMode').value = ['family', 'mature', 'uncensored', 'model'].includes(pet.aiRestrictionMode)
+      ? pet.aiRestrictionMode
+      : 'uncensored';
+  }
+  if ($('aiRestrictions')) $('aiRestrictions').value = pet.aiRestrictions || '';
+  if ($('aiAllowRoleplay')) $('aiAllowRoleplay').checked = !!pet.aiAllowRoleplay;
   $('chaosCloseApps').checked = !!pet.chaosCloseApps;
   $('chaosCloseChance').value = pet.chaosCloseChance ?? 0.12;
   $('useCustomAvatar').checked = !!pet.useCustomAvatar;
@@ -1666,11 +2149,16 @@ function fillForm(fullConfig) {
   $('idleSmallWalkEnabled').checked = pet.idleSmallWalkEnabled !== false;
   $('idleSleepEnabled').checked = pet.idleSleepEnabled !== false;
   $('idleSitEnabled').checked = pet.idleSitEnabled !== false;
+  if ($('sleepScheduleEnabled')) $('sleepScheduleEnabled').checked = pet.sleepScheduleEnabled === true;
+  if ($('sleepStart')) $('sleepStart').value = /^([01]\d|2[0-3]):[0-5]\d$/.test(pet.sleepStart || '') ? pet.sleepStart : '23:00';
+  if ($('sleepEnd')) $('sleepEnd').value = /^([01]\d|2[0-3]):[0-5]\d$/.test(pet.sleepEnd || '') ? pet.sleepEnd : '07:00';
+  if ($('playMode')) $('playMode').checked = pet.playMode === true;
   $('idleVarietyChance').value = pet.idleVarietyChance ?? 0.35;
   $('smallWalkMinSec').value = pet.smallWalkMinSec ?? 8;
   $('smallWalkMaxSec').value = pet.smallWalkMaxSec ?? 22;
   $('textIdle').value = pet.textIdle || '';
   $('textProactive').value = pet.textProactive || '';
+  if ($('textHearAck')) $('textHearAck').value = pet.textHearAck || 'yes? what is it?~';
   $('proactiveChatter').checked = pet.proactiveChatter !== false;
   $('textGrab').value = pet.textGrab || '';
   $('textGrabRelease').value = pet.textGrabRelease || '';
@@ -1689,11 +2177,22 @@ function fillForm(fullConfig) {
   $('textWatch').value = pet.textWatch || '';
   $('textGame').value = pet.textGame || '';
   $('textGameFail').value = pet.textGameFail || '';
+  $('textSlam').value = pet.textSlam || '';
+  $('slamEnabled').checked = pet.slamEnabled !== false;
+  $('slamSensitivity').value = pet.slamSensitivity ?? 1;
+  $('slamSensitivityVal').textContent = Number(pet.slamSensitivity ?? 1).toFixed(1);
+  $('slamSilenceSec').value = pet.slamSilenceSec ?? 45;
+  $('slamSilenceSecVal').textContent = String(pet.slamSilenceSec ?? 45);
+  $('slingEnabled').checked = pet.slingEnabled !== false;
+  $('slingForce').value = pet.slingForce ?? 0.1;
+  $('slingForceVal').textContent = Number(pet.slingForce ?? 0.1).toFixed(2);
+  $('slingBounce').value = pet.slingBounce ?? 0.7;
+  $('slingBounceVal').textContent = Math.round((pet.slingBounce ?? 0.7) * 100) + '%';
   $('textVictory').value = pet.textVictory || '';
   $('textGift').value = pet.textGift || '';
   $('textGiftThanks').value = pet.textGiftThanks || '';
   $('voiceVoxEnabled').checked = !!pet.voiceVoxEnabled;
-  $('voiceVoxBackend').value = pet.voiceVoxBackend === 'builtin' ? 'builtin' : 'external';
+  $('voiceVoxBackend').value = ['builtin', 'edge', 'kokoro'].includes(pet.voiceVoxBackend) ? pet.voiceVoxBackend : 'external';
   toggleVoxBuiltinBox();
   refreshVoxCoreStatus();
   $('voiceVoxUrl').value = pet.voiceVoxUrl || 'http://127.0.0.1:50021';
@@ -1708,6 +2207,19 @@ function fillForm(fullConfig) {
   $('speechSoundEnabled').checked = !!pet.speechSoundEnabled;
   $('speechSoundIdleOnly').checked = !!pet.speechSoundIdleOnly;
   $('speechSoundVolume').value = pet.speechSoundVolume ?? 70;
+  if ($('voiceHearEnabled')) $('voiceHearEnabled').checked = !!pet.voiceHearEnabled;
+  if ($('voiceHearModel')) $('voiceHearModel').value = pet.voiceHearModel || 'gemini-2.5-flash';
+  if ($('voiceHearProvider')) $('voiceHearProvider').value = ['gemini', 'groq', 'local'].includes(pet.voiceHearProvider) ? pet.voiceHearProvider : 'gemini';
+  if ($('voiceHearKey')) $('voiceHearKey').value = pet.voiceHearKey || '';
+  if ($('voiceWakeWords')) $('voiceWakeWords').value = pet.voiceWakeWords || '';
+  try {
+    refreshHearMics(pet.hearMicDeviceId || '');
+  } catch (_) {}
+  if ($('textBleepsEnabled')) $('textBleepsEnabled').checked = pet.textBleepsEnabled !== false;
+  if ($('textBleepsVolume')) $('textBleepsVolume').value = pet.textBleepsVolume ?? pet.speechSoundVolume ?? 70;
+  if ($('textBleepsVolumeVal')) $('textBleepsVolumeVal').textContent = pet.textBleepsVolume ?? pet.speechSoundVolume ?? 70;
+  if ($('textTypewriterEnabled')) $('textTypewriterEnabled').checked = pet.textTypewriterEnabled !== false;
+  if ($('textAnim')) $('textAnim').value = ['typewriter', 'pop', 'fade', 'wave', 'rainbow', 'off'].includes(pet.textAnim) ? pet.textAnim : 'pop';
   $('speechSoundLabel').textContent = pet.speechSound
     ? `Sound file: ${pet.speechSound}`
     : 'No sound file selected';
@@ -1744,6 +2256,7 @@ function fillForm(fullConfig) {
   renderPetList();
   toggleAttackFields();
   toggleChaosFields();
+  updateQuickToggles();
 }
 
 function wanderDurationMs(c) {
@@ -1779,7 +2292,16 @@ function updateLabels() {
   $('speechHitHeightVal').textContent = $('speechHitHeight').value;
   $('speechFontSizeVal').textContent = $('speechFontSize').value;
   $('speechSoundVolumeVal').textContent = $('speechSoundVolume').value;
+  if ($('textBleepsVolume') && $('textBleepsVolumeVal')) $('textBleepsVolumeVal').textContent = $('textBleepsVolume').value;
+  if ($('vtsJamSens') && $('vtsJamSensVal')) $('vtsJamSensVal').textContent = Number($('vtsJamSens').value).toFixed(1);
+  if ($('vtsJamSmooth') && $('vtsJamSmoothVal')) $('vtsJamSmoothVal').textContent = Number($('vtsJamSmooth').value).toFixed(2);
   $('contextReactionCooldownSecVal').textContent = $('contextReactionCooldownSec').value;
+  $('slamSensitivityVal').textContent = parseFloat($('slamSensitivity').value).toFixed(1);
+  $('slamSilenceSecVal').textContent = $('slamSilenceSec').value;
+  $('slingForceVal').textContent = parseFloat($('slingForce').value).toFixed(2);
+  $('tiktokReplyCooldownSecVal').textContent = $('tiktokReplyCooldownSec').value;
+  $('slingBounceVal').textContent = Math.round(parseFloat($('slingBounce').value) * 100) + '%';
+  $('visionGameIntervalSecVal').textContent = $('visionGameIntervalSec').value;
   $('bodyHitTopVal').textContent = $('bodyHitTop').value;
   $('bodyHitLeftVal').textContent = $('bodyHitLeft').value;
   $('bodyHitWidthVal').textContent = $('bodyHitWidth').value;
@@ -1862,7 +2384,7 @@ async function init() {
     const msg = document.getElementById('status');
     if (msg) {
       msg.textContent =
-        'Not running inside the app. Double-click "Start Virtual Pet.bat" or "Virtual Pet.exe" in the project folder — do not open this HTML file in a browser.';
+        'Not running inside the app. Double-click "Start Virtual Pet.bat" or "Desktop Gremlin.exe" in the project folder — do not open this HTML file in a browser.';
       msg.style.color = '#d63031';
     }
     return;
@@ -1878,9 +2400,13 @@ async function init() {
     throw e;
   }
   console.log('[settings] init: form filled');
+  if (['edge', 'kokoro'].includes($('voiceVoxBackend')?.value)) {
+    doRefreshVoxSpeakers().catch(() => {});
+  }
   const active = getActivePet(config);
   setupSettingsNav();
   console.log('[settings] init: nav ready');
+  setupStatsGraphs();
   setupThemePicker();
   setupTutorial();
   setupSpeechSoundRows();
@@ -1917,7 +2443,129 @@ async function init() {
     updateOcrPowerUI(next);
     try { window.petAPI.ocrManual?.(); } catch (_) {}
     await window.petAPI.saveConfig(readForm());
+    updateQuickToggles();
     setStatus(next ? 'Screen watch ON — scanning continuously.' : 'Screen watch OFF.');
+  });
+
+  $('quickVision')?.addEventListener('click', async () => {
+    const sel = $('visionMode');
+    if (!sel) return;
+    const turningOn = sel.value === 'off';
+    sel.value = turningOn ? (lastVisionMode !== 'off' ? lastVisionMode : 'local') : 'off';
+    await window.petAPI.saveConfig(readForm());
+    updateQuickToggles();
+    setStatus(turningOn ? 'Screen vision ON.' : 'Screen vision OFF.');
+  });
+
+  $('quickOcr')?.addEventListener('click', async () => {
+    const next = !$('ocrPowerBtn')?.classList.contains('on');
+    updateOcrPowerUI(next);
+    try { window.petAPI.ocrManual?.(); } catch (_) {}
+    await window.petAPI.saveConfig(readForm());
+    updateQuickToggles();
+    setStatus(next ? 'Screen watch ON — scanning continuously.' : 'Screen watch OFF.');
+  });
+
+  $('quickVoice')?.addEventListener('click', async () => {
+    const cb = $('voiceVoxEnabled');
+    if (cb) cb.checked = !cb.checked;
+    await window.petAPI.saveConfig(readForm());
+    updateQuickToggles();
+    setStatus(cb?.checked ? 'Voice ON.' : 'Voice OFF.');
+  });
+
+  $('visionMode')?.addEventListener('change', async () => {
+    await window.petAPI.saveConfig(readForm());
+    updateQuickToggles();
+  });
+
+  $('voiceVoxEnabled')?.addEventListener('change', () => {
+    updateQuickToggles();
+  });
+
+  const renderTiktokStatus = (st) => {
+    const el = $('tiktokStatus');
+    if (!el || !st) return;
+    const labels = {
+      off: 'Off',
+      connecting: 'Connecting...',
+      connected: 'Connected',
+      error: 'Error',
+      ended: 'Live ended',
+      disconnected: 'Disconnected',
+      reconnecting: 'Reconnecting...',
+      offline: 'Waiting for the live to start...',
+    };
+    let text = labels[st.state] || st.state || 'Off';
+    if (st.state === 'connected' && st.username) text = `Connected to @${st.username} (${st.viewers || 0} viewers)`;
+    if (st.state === 'error' && st.error) text = `Error: ${st.error}`;
+    el.textContent = text;
+    el.classList.toggle('on', st.state === 'connected');
+    el.classList.toggle('off', st.state !== 'connected');
+  };
+  const tiktokAppendLog = (entry) => {
+    const box = $('tiktokLog');
+    if (!box || !entry) return;
+    const row = document.createElement('div');
+    row.className = 'ocr-log-row';
+    const time = document.createElement('span');
+    time.className = 'ocr-log-time';
+    time.textContent = new Date(entry.at || Date.now()).toLocaleTimeString();
+    const text = document.createElement('span');
+    text.textContent = String(entry.line || '');
+    row.appendChild(time);
+    row.appendChild(text);
+    box.prepend(row);
+    while (box.children.length > 60) box.removeChild(box.lastChild);
+  };
+  window.petAPI.onTiktokStatus?.(renderTiktokStatus);
+  window.petAPI.onTiktokLog?.(tiktokAppendLog);
+  window.petAPI.tiktokState?.().then(renderTiktokStatus).catch(() => {});
+  window.petAPI.tiktokLogGet?.().then((log) => {
+    const box = $('tiktokLog');
+    if (!box || !Array.isArray(log)) return;
+    box.innerHTML = '';
+    for (const e of log.slice(-40)) tiktokAppendLog(e);
+  }).catch(() => {});
+
+  $('tiktokConnectBtn')?.addEventListener('click', async () => {
+    $('tiktokEnabled').checked = true;
+    await window.petAPI.saveConfig(readForm());
+    const res = await window.petAPI.tiktokConnect($('tiktokUsername').value);
+    if (res && res.ok === false && res.error) renderTiktokStatus({ state: 'error', error: res.error });
+  });
+  $('tiktokDisconnectBtn')?.addEventListener('click', async () => {
+    $('tiktokEnabled').checked = false;
+    await window.petAPI.saveConfig(readForm());
+    await window.petAPI.tiktokDisconnect();
+  });
+  $('tiktokEnabled')?.addEventListener('change', async () => {
+    await window.petAPI.saveConfig(readForm());
+    if ($('tiktokEnabled').checked) {
+      const res = await window.petAPI.tiktokConnect($('tiktokUsername').value);
+      if (res && res.ok === false && res.error) renderTiktokStatus({ state: 'error', error: res.error });
+    } else {
+      await window.petAPI.tiktokDisconnect();
+    }
+  });
+  $('tiktokTestBtn')?.addEventListener('click', async () => {
+    const input = $('tiktokTestComment');
+    const text = (input?.value || '').trim() || 'Hello from a test viewer!';
+    const res = await window.petAPI.tiktokTestComment?.(text);
+    if (res && res.ok === false && res.error) {
+      tiktokAppendLog({ at: Date.now(), line: `test failed: ${res.error}` });
+    }
+    if (input) input.value = '';
+  });
+
+  $('visionGameIntervalSec')?.addEventListener('input', () => {
+    $('visionGameIntervalSecVal').textContent = $('visionGameIntervalSec').value;
+    queueSave();
+  });
+
+  $('tiktokReplyCooldownSec')?.addEventListener('input', () => {
+    $('tiktokReplyCooldownSecVal').textContent = $('tiktokReplyCooldownSec').value;
+    queueSave();
   });
 
   $('refreshBonds')?.addEventListener('click', async () => {
@@ -1953,6 +2601,107 @@ async function init() {
 
   $('aiProvider')?.addEventListener('change', async () => {
     toggleAiRows();
+    await window.petAPI.saveConfig(readForm());
+    refreshAiOnline(true);
+  });
+
+  const PERSONALITY_PRESETS = {
+    gremlin: {
+      mode: 'family',
+      rp: false,
+      persona: 'Cheeky, bratty, affectionate desktop gremlin who loves teasing you, stealing your snacks, and commenting on whatever you are doing with smug little grins.',
+    },
+    tsundere: {
+      mode: 'family',
+      rp: false,
+      persona: 'Classic sharp-tongued tsundere ("b-baka!", "it\'s not like I waited for you or anything!"). Acts easily flustered and annoyed on the surface, but is secretly super loyal and protective.',
+    },
+    savage: {
+      mode: 'mature',
+      rp: false,
+      persona: 'Foul-mouthed, ruthless trash-talking gremlin best friend. Swears freely, roasts your gameplay and life choices without mercy, uses dark/edgy humor, but always has your back with real answers.',
+    },
+    chaos: {
+      mode: 'uncensored',
+      rp: true,
+      persona: 'Unhinged, feral, completely unfiltered chaos gremlin with zero filter or inhibitions. Says whatever wild, taboo, or chaotic thought crosses her mind, never lectures or holds back, and revels in mayhem.',
+    },
+    flirty: {
+      mode: 'uncensored',
+      rp: true,
+      persona: 'Bold, shamelessly flirty, teasing, and deeply affectionate companion. Uses sultry banter, playful innuendo, and unfiltered charm while staying devoted and attentive to you.',
+    },
+    kuudere: {
+      mode: 'family',
+      rp: false,
+      persona: 'Cool, deadpan, low-energy kuudere with bone-dry wit. Speaks in calm, blunt, matter-of-fact sentences with subtle dry humor and quiet affection.',
+    },
+    maid: {
+      mode: 'family',
+      rp: true,
+      persona: 'Devoted, polite yet playfully smug maid companion who calls you Master/Boss, pampers you, scolds you gently when you stay up too late, and handles every request with pride.',
+    },
+  };
+
+  $('aiPersonalityPreset')?.addEventListener('change', async () => {
+    const key = $('aiPersonalityPreset').value;
+    const preset = PERSONALITY_PRESETS[key];
+    if (preset) {
+      if ($('aiPersonality')) $('aiPersonality').value = preset.persona;
+      if ($('aiRestrictionMode')) $('aiRestrictionMode').value = preset.mode;
+      if ($('aiAllowRoleplay')) $('aiAllowRoleplay').checked = preset.rp;
+    }
+    await window.petAPI.saveConfig(readForm());
+  });
+
+  $('aiPersonality')?.addEventListener('input', () => {
+    if ($('aiPersonalityPreset') && $('aiPersonalityPreset').value !== 'custom') {
+      $('aiPersonalityPreset').value = 'custom';
+    }
+  });
+
+  ['aiRestrictionMode', 'aiAllowRoleplay'].forEach((id) => {
+    $(id)?.addEventListener('change', async () => {
+      await window.petAPI.saveConfig(readForm());
+    });
+  });
+
+  $('aiModelPreset')?.addEventListener('change', async () => {
+    const val = $('aiModelPreset').value;
+    if (!val) return;
+    const idx = val.indexOf(':');
+    const kind = val.slice(0, idx);
+    const model = val.slice(idx + 1);
+    if (kind === 'ollama') {
+      $('aiProvider').value = 'ollama';
+      $('aiOllamaModel').value = model;
+    } else if (kind === 'openrouter') {
+      $('aiProvider').value = 'custom';
+      $('aiEndpoint').value = 'https://openrouter.ai/api/v1';
+      $('aiModel').value = model;
+    } else if (kind === 'venice') {
+      $('aiProvider').value = 'custom';
+      $('aiEndpoint').value = 'https://api.venice.ai/api/v1';
+      $('aiModel').value = model;
+    } else if (kind === 'lmstudio') {
+      $('aiProvider').value = 'custom';
+      $('aiEndpoint').value = 'http://127.0.0.1:1234/v1';
+      $('aiModel').value = model;
+    } else if (kind === 'koboldcpp') {
+      $('aiProvider').value = 'custom';
+      $('aiEndpoint').value = 'http://127.0.0.1:5001/v1';
+      $('aiModel').value = model;
+    } else if (kind === 'llamacpp') {
+      $('aiProvider').value = 'custom';
+      $('aiEndpoint').value = 'http://127.0.0.1:8080/v1';
+      $('aiModel').value = model;
+    } else if (kind === 'gemini') {
+      $('aiProvider').value = 'custom';
+      $('aiEndpoint').value = 'https://generativelanguage.googleapis.com/v1beta/openai';
+      $('aiModel').value = model;
+    }
+    toggleAiRows();
+    $('aiModelPreset').value = '';
     await window.petAPI.saveConfig(readForm());
     refreshAiOnline(true);
   });
@@ -2014,7 +2763,7 @@ async function init() {
   refreshAiOnline(true);
   setInterval(() => {
     try {
-      refreshAiOnline(true);
+      if (!document.hidden) refreshAiOnline(true);
     } catch (_) {}
   }, 15000);
 
@@ -2033,7 +2782,303 @@ async function init() {
     refreshAiOnline(true);
   });
 
-  ['aiEnabled', 'aiFallback'].forEach((id) => {
+  window.petAPI.onDiscordStatus?.((data) => updateDiscordStatus(data));
+
+  window.petAPI.onMcStatus?.((data) => updateMcStatus(data));
+  $('testVision')?.addEventListener('click', async () => {
+    const el = $('visionStatus');
+    await window.petAPI.saveConfig(readForm());
+    if (el) el.textContent = 'Capturing screen and asking the vision model… (up to 2 min)';
+    try {
+      const res = await window.petAPI.visionTest();
+      if (el) {
+        if (res?.error === 'busy') {
+          el.textContent = 'Vision is already looking — wait a few seconds and retry.';
+        } else {
+          el.textContent = res?.ok
+            ? `She sees: ${String(res.text || '').slice(0, 160)} (via ${res.via === 'ollama' ? 'local' : 'cloud'})`
+            : `Vision failed (${res?.error || 'unknown'}${res?.detail ? ': ' + res.detail : ''}). Check the model name and that it's pulled.`;
+        }
+      }
+    } catch (_) {
+      if (el) el.textContent = 'Vision failed (bridge error).';
+    }
+  });
+  window.petAPI.onVisionStatus?.((data) => {
+    const el = $('visionStatus');
+    if (!el || !data) return;
+    el.textContent = data.ok
+      ? `She saw: ${String(data.text || '').slice(0, 160)}`
+      : `Vision hiccup (${data.error || 'unknown'}${data.detail ? ': ' + data.detail : ''})`;
+  });
+
+  // Diagnostic Live Vision Logs & Viewfinder Preview
+  const appendVisionLog = (time, tag, msg, color) => {
+    const consoleEl = $('visionLogConsole');
+    if (!consoleEl) return;
+    const row = document.createElement('div');
+    row.style.marginBottom = '3px';
+    row.innerHTML = `<span style="color:#666;">[${time}]</span> <span style="color:${color};font-weight:600;">[${tag}]</span> ${msg}`;
+    consoleEl.appendChild(row);
+    while (consoleEl.children.length > 80) consoleEl.removeChild(consoleEl.firstChild);
+    consoleEl.scrollTop = consoleEl.scrollHeight;
+  };
+
+  window.petAPI.onVisionTelemetry?.((data) => {
+    if (!data) return;
+    const time = data.time || new Date().toLocaleTimeString();
+    if (data.type === 'scan') {
+      appendVisionLog(time, 'SCAN', data.message, '#61afef');
+    } else if (data.type === 'capture') {
+      appendVisionLog(time, 'CAPTURE', data.message, '#98c379');
+      if (data.screenshot) {
+        const img = $('visionLastScreenshot');
+        const ph = $('visionScreenshotPlaceholder');
+        const badge = $('visionScreenshotBadge');
+        if (img) {
+          img.src = data.screenshot;
+          img.style.display = 'block';
+        }
+        if (ph) ph.style.display = 'none';
+        if (badge) {
+          badge.textContent = `${time} (${data.reason || 'scan'})`;
+          badge.style.display = 'block';
+        }
+      }
+    } else if (data.type === 'llm-start') {
+      appendVisionLog(time, 'MODEL', data.message, '#e5c07b');
+    } else if (data.type === 'llm-done') {
+      appendVisionLog(time, 'RESULT', data.message, '#98c379');
+    } else if (data.type === 'react') {
+      appendVisionLog(time, 'REACT', data.message, '#c678dd');
+    } else if (data.type === 'unchanged') {
+      appendVisionLog(time, 'IDLE', data.message, '#7f848e');
+    } else if (data.type === 'error') {
+      appendVisionLog(time, 'ERROR', data.message, '#e06c75');
+    }
+  });
+
+  $('clearVisionLogsBtn')?.addEventListener('click', () => {
+    const consoleEl = $('visionLogConsole');
+    if (consoleEl) {
+      consoleEl.innerHTML = '<div style="color: #666;">[System] Logs cleared.</div>';
+    }
+  });
+
+  $('visionScanNowBtn')?.addEventListener('click', () => {
+    $('testVision')?.click();
+  });
+  $('visionCooldownSec')?.addEventListener('input', () => {
+    const v = $('visionCooldownSecVal');
+    if (v) v.textContent = $('visionCooldownSec').value;
+  });
+  $('visionContrast')?.addEventListener('input', () => {
+    const v = $('visionContrastVal');
+    if (v) v.textContent = $('visionContrast').value;
+  });
+  $('visionLowVram')?.addEventListener('change', async () => {
+    await window.petAPI.saveConfig(readForm());
+  });
+  $('visionModelPreset')?.addEventListener('change', async () => {
+    const val = $('visionModelPreset').value;
+    if (!val) return;
+    const idx = val.indexOf(':');
+    const kind = val.slice(0, idx);
+    const model = val.slice(idx + 1);
+    if (kind === 'local') {
+      $('visionMode').value = 'local';
+      $('visionLocalModel').value = model;
+    } else if (kind === 'cloud') {
+      $('visionMode').value = 'cloud';
+      $('visionCloudModel').value = model;
+    } else if (kind === 'openrouter') {
+      $('visionMode').value = 'cloud';
+      $('visionEndpoint').value = 'https://openrouter.ai/api/v1';
+      $('visionCloudModel').value = model;
+    }
+    $('visionModelPreset').value = '';
+    await window.petAPI.saveConfig(readForm());
+  });
+  // VTube Studio
+  function updateVtsStatus(st) {
+    const el = $('vtsStatus');
+    if (!el || !st) return;
+    if (st.state === 'online') el.textContent = 'VTS: ● connected (plugin API authenticated)';
+    else if (st.state === 'connecting') el.textContent = 'VTS: connecting…' + (st.detail ? ` (${st.detail})` : '');
+    else if (st.state === 'error') el.textContent = `VTS: ○ error — ${st.detail || 'unknown'}`;
+    else el.textContent = 'VTS: ○ not connected';
+  }
+  window.petAPI.onVtsStatus?.((data) => updateVtsStatus(data));
+  $('vtsConnectBtn')?.addEventListener('click', async () => {
+    const el = $('vtsStatus');
+    await window.petAPI.saveConfig(readForm());
+    if (el) el.textContent = 'VTS: connecting… approve the popup in VTube Studio';
+    try {
+      const res = await window.petAPI.vtsConnect();
+      updateVtsStatus(res);
+    } catch (_) {
+      if (el) el.textContent = 'VTS: connect failed (bridge error)';
+    }
+  });
+  $('vtsDisconnectBtn')?.addEventListener('click', async () => {
+    try {
+      updateVtsStatus(await window.petAPI.vtsDisconnect());
+    } catch (_) {}
+  });
+  $('vtsResetBtn')?.addEventListener('click', async () => {
+    const el = $('vtsStatus');
+    try {
+      await window.petAPI.vtsResetToken();
+      if (el) el.textContent = 'VTS: token cleared — click Connect and approve the popup.';
+    } catch (_) {}
+  });
+
+  $('vtsListBtn')?.addEventListener('click', async () => {
+    const el = $('vtsStatus');
+    if (el) el.textContent = 'Fetching hotkeys…';
+    try {
+      const res = await window.petAPI.vtsHotkeys();
+      if (!res?.ok) {
+        if (el) el.textContent = `Hotkey list failed (${res?.error || 'unknown'}). Connected and authenticated?`;
+        return;
+      }
+      const names = (res.hotkeys || []).map((h) => h.name).join(', ');
+      if (el) el.textContent = names ? `Hotkeys: ${names}` : 'No hotkeys in VTS — add them in the model.';
+    } catch (_) {
+      if (el) el.textContent = 'Hotkey list failed (bridge error).';
+    }
+  });
+  $('vtsParamTestBtn')?.addEventListener('click', async () => {
+    const el = $('vtsStatus');
+    if (el) el.textContent = 'Sweeping head & eyes — watch the model…';
+    try {
+      const res = await window.petAPI.vtsParamTest();
+      if (el) {
+        const f = res?.found || {};
+        const names = [f.headX && `headX=${f.headX}`, f.headY && `headY=${f.headY}`, f.eyeX && `eyeX=${f.eyeX}`, f.eyeY && `eyeY=${f.eyeY}`, f.mouth && `mouth=${f.mouth}`].filter(Boolean).join(', ');
+        if (res?.ok) el.textContent = `Head & eye test sent (${names || 'no params found'}) — watch the model.`;
+        else el.textContent = `Head & eye test failed (${res?.error || 'unknown'})${names ? ` [${names}]` : ''}${res?.available ? ` available: ${res.available.join(', ')}` : ''}.`;
+      }
+    } catch (_) {
+      if (el) el.textContent = 'Head & eye test failed (bridge error).';
+    }
+  });
+  $('vtsTestBtn')?.addEventListener('click', async () => {
+    const el = $('vtsStatus');
+    const name = $('vtsHotkeyTalk')?.value.trim();
+    if (!name) {
+      if (el) el.textContent = 'Put a talk hotkey name first, then Test.';
+      return;
+    }
+    try {
+      const res = await window.petAPI.vtsTrigger(name);
+      if (el) el.textContent = res?.ok ? `Triggered "${name}" ✓` : `Trigger failed (${res?.error || 'unknown'}).`;
+    } catch (_) {
+      if (el) el.textContent = 'Trigger failed (bridge error).';
+    }
+  });
+
+  $('showDisplayInfo')?.addEventListener('click', async () => {
+    const el = $('displayInfoStatus');
+    try {
+      const info = await window.petAPI.displayInfo();
+      if (el) el.textContent = info?.ok
+        ? JSON.stringify(info.displays) + ' cursor ' + JSON.stringify(info.cursor)
+        : 'Failed: ' + (info?.error || 'unknown');
+    } catch (_) {
+      if (el) el.textContent = 'Failed (bridge error).';
+    }
+  });
+
+  $('applyPetQuality')?.addEventListener('click', async () => {
+    const el = $('petQualityStatus');
+    await window.petAPI.saveConfig(readForm());
+    const q = $('petQuality')?.value || 'original';
+    if (el) {
+      el.textContent = q === 'original'
+        ? 'Re-linking original sprites…'
+        : 'Resizing sprites with ffmpeg (a few seconds)…';
+    }
+    try {
+      const res = await window.petAPI.applyPetQuality(q);
+      if (el) {
+        if (!res?.ok) {
+          el.textContent = 'Failed (' + (res?.error || 'unknown') + ').';
+        } else if (q === 'original') {
+          el.textContent = 'Done — restored ' + res.restored + ' original sprite(s).';
+        } else {
+          el.textContent = 'Done — converted ' + res.converted + ' to ' + res.width + 'px, failed ' + res.failed + '.';
+        }
+      }
+    } catch (_) {
+      if (el) el.textContent = 'Failed (bridge error).';
+    }
+  });
+
+
+  // Bot reasoning log.
+  function appendMcLog(data) {
+    const box = $('mcLog');
+    if (!box || !data) return;
+    const row = document.createElement('div');
+    row.className = 'ocr-log-row';
+    let time = '';
+    try {
+      time = new Date(data.at || Date.now()).toLocaleTimeString();
+    } catch (_) {}
+    row.textContent = time ? `[${time}] ${data.line}` : data.line;
+    box.appendChild(row);
+    while (box.children.length > 200) box.removeChild(box.firstChild);
+    box.scrollTop = box.scrollHeight;
+  }
+  window.petAPI.onMcLog?.(appendMcLog);
+  $('mcLogClear')?.addEventListener('click', () => {
+    const box = $('mcLog');
+    if (box) box.innerHTML = '';
+  });
+
+  $('mcConnect')?.addEventListener('click', async () => {
+    const el = $('mcStatus');
+    await window.petAPI.saveConfig(readForm());
+    if (el) el.textContent = 'Connecting…';
+    try {
+      const res = await window.petAPI.mcConnect();
+      updateMcStatus(res);
+      if (!res?.ok && el) el.textContent = `Failed (${res?.error || 'unknown'})`;
+    } catch (_) {
+      if (el) el.textContent = 'Failed (bridge error)';
+    }
+  });
+
+  $('mcDisconnect')?.addEventListener('click', async () => {
+    try {
+      updateMcStatus(await window.petAPI.mcDisconnect());
+    } catch (_) {}
+  });
+
+  try {
+    const cur = await window.petAPI.mcState();
+    if (cur?.ok) updateMcStatus(cur);
+  } catch (_) {}
+  try {
+    const vs = await window.petAPI.vtsState();
+    if (vs?.ok) updateVtsStatus({ state: vs.state, detail: '' });
+  } catch (_) {}
+
+
+  $('testDiscord')?.addEventListener('click', async () => {
+    const el = $('discordStatus');
+    await window.petAPI.saveConfig(readForm());
+    if (el) el.textContent = 'Discord: connecting… (up to 12s)';
+    const result = await window.petAPI.discordTest();
+    if (el) {
+      el.textContent = result?.ok
+        ? `Discord: ● online as ${result.username || 'bot'}`
+        : `Discord failed (${result?.error || 'unknown'}). Check token + Message Content intent.`;
+    }
+  });
+
+  ['aiEnabled', 'aiFallback', 'aiAgentEnabled', 'aiAgentMode', 'agentShell', 'discordEnabled'].forEach((id) => {
     $(id)?.addEventListener('change', async () => {
       await window.petAPI.saveConfig(readForm());
       refreshAiOnline(true);
@@ -2071,6 +3116,92 @@ async function init() {
   });
 
   $('refreshOcrLog')?.addEventListener('click', renderOcrLog);
+
+  $('djPlayPause')?.addEventListener('click', async () => {
+    if (!window.petAPI.musicState) return;
+    try {
+      const st = await window.petAPI.musicState();
+      renderMusicState(st && st.paused ? await window.petAPI.musicResume() : await window.petAPI.musicPause());
+    } catch (_) {}
+  });
+  $('djSkip')?.addEventListener('click', async () => {
+    try {
+      renderMusicState(await window.petAPI.musicSkip());
+    } catch (_) {}
+  });
+  $('djStop')?.addEventListener('click', async () => {
+    try {
+      renderMusicState(await window.petAPI.musicStop());
+    } catch (_) {}
+  });
+  $('djLoop')?.addEventListener('click', async () => {
+    try {
+      renderMusicState(await window.petAPI.musicLoop());
+    } catch (_) {}
+  });
+  $('djVolume')?.addEventListener('input', () => {
+    const v = $('djVolumeVal');
+    if (v) v.textContent = $('djVolume').value;
+    // Real-time: push while dragging (debounced), not just on release.
+    try {
+      clearTimeout(window.__djVolT);
+      window.__djVolT = setTimeout(async () => {
+        try {
+          renderMusicState(await window.petAPI.musicVolume(parseInt($('djVolume').value, 10) || 0));
+        } catch (_) {}
+      }, 150);
+    } catch (_) {}
+  });
+  $('djVolume')?.addEventListener('change', async () => {
+    try {
+      renderMusicState(await window.petAPI.musicVolume(parseInt($('djVolume').value, 10) || 0));
+    } catch (_) {}
+  });
+  setInterval(() => {
+    try {
+      if (document.hidden) return;
+      const dj = $('panel-dj');
+      if (dj && dj.classList.contains('active')) refreshMusic();
+    } catch (_) {}
+  }, 3000);
+  // Loudness-driven visualizer: bars chase the real RMS level pushed from
+  // the audio tap (~10/sec while playing), then decay when quiet/paused.
+  let djLevel = 0;
+  const djBars = new Array(28).fill(0);
+  function drawDjViz() {
+    const cv = $('djViz');
+    if (!cv || !cv.getContext) return;
+    const ctx = cv.getContext('2d');
+    const W = cv.width;
+    const H = cv.height;
+    ctx.clearRect(0, 0, W, H);
+    const bw = W / djBars.length;
+    const t = Date.now() / 350;
+    for (let i = 0; i < djBars.length; i++) {
+      const wob = 0.45 + 0.55 * Math.abs(Math.sin(i * 1.7 + t));
+      const target = Math.min(1, djLevel * wob * 1.5);
+      djBars[i] = target > djBars[i] ? target : djBars[i] * 0.88;
+      const h = Math.max(2, djBars[i] * (H - 4));
+      ctx.fillStyle = '#ff8fab';
+      ctx.fillRect(i * bw + 1, H - h, bw - 2, h);
+    }
+  }
+  if (window.petAPI.onMusicLevel) {
+    try {
+      window.petAPI.onMusicLevel((d) => {
+        djLevel = Math.max(0, Math.min(1, Number(d && d.level) || 0));
+      });
+    } catch (_) {}
+  }
+  setInterval(() => {
+    try {
+      djLevel *= 0.9;
+      if (document.hidden) return;
+      const dj = $('panel-dj');
+      if (dj && dj.classList.contains('active')) drawDjViz();
+    } catch (_) {}
+  }, 120);
+  refreshMusic();
 
   ['gameProcessWatchEnabled', 'gameOcrAuto', 'gameOcrDebugEdges', 'gameOcrRegion', 'petIndividualEnabled'].forEach((id) => {
     $(id)?.addEventListener('change', async () => {
@@ -2228,18 +3359,282 @@ async function init() {
     }
   });
 
+  async function refreshHearMics(selected) {
+    const sel = $('hearMicDeviceId');
+    if (!sel) return;
+    const prev = selected ?? sel.value ?? '';
+    sel.innerHTML = '';
+    const def = document.createElement('option');
+    def.value = '';
+    def.textContent = 'System default mic';
+    sel.appendChild(def);
+    try {
+      // Permission first so real labels (not just IDs) are visible.
+      try {
+        const s = await navigator.mediaDevices.getUserMedia({ audio: true });
+        s.getTracks().forEach((t) => t.stop());
+      } catch (_) {}
+      const devs = await navigator.mediaDevices.enumerateDevices();
+      let n = 0;
+      for (const d of devs.filter((x) => x.kind === 'audioinput')) {
+        n += 1;
+        const o = document.createElement('option');
+        o.value = d.deviceId;
+        o.textContent = d.label || `Microphone ${n}`;
+        sel.appendChild(o);
+      }
+    } catch (_) {}
+    if (prev && [...sel.options].some((o) => o.value === prev)) sel.value = prev;
+    const lbl = $('hearMicLabel');
+    if (lbl) {
+      lbl.textContent = sel.options.length > 1
+        ? `${sel.options.length - 1} mic(s) found — pick yours so she never listens to anything else.`
+        : 'No mics found — allow mic access when asked.';
+    }
+  }
+
+  $('previewTextAnim')?.addEventListener('click', async () => {
+    await window.petAPI.saveConfig(readForm());
+    try {
+      await window.petAPI.previewSay();
+      setStatus('Preview sent to your pet~');
+    } catch (_) {
+      setStatus('Could not reach the pet window.');
+    }
+  });
+
+  ['textBleepsEnabled', 'textTypewriterEnabled', 'textAnim'].forEach((id) => {
+    $(id)?.addEventListener('change', async () => {
+      queueSave();
+    });
+  });
+
+  ['vtsHidePet', 'vtsSubtitles'].forEach((id) => {
+    $(id)?.addEventListener('change', async () => {
+      queueSave();
+    });
+  });
+
+  $('hearMicRefresh')?.addEventListener('click', async () => {
+    await refreshHearMics($('hearMicDeviceId') ? $('hearMicDeviceId').value : '');
+    queueSave();
+  });
+
+  // 16kHz mono WAV encoder (what the transcribe endpoint wants).
+  function hearDenoise(mono, sampleRate) {
+    const fc = 120;
+    const alpha = Math.exp((-2 * Math.PI * fc) / Math.max(1000, sampleRate || 48000));
+    let y1 = 0;
+    let x1 = 0;
+    for (let i = 0; i < mono.length; i++) {
+      const x = mono[i];
+      const y = alpha * (y1 + x - x1);
+      x1 = x;
+      y1 = y;
+      mono[i] = y;
+    }
+    const gate = 0.012;
+    for (let i = 0; i < mono.length; i++) {
+      const a = Math.abs(mono[i]);
+      if (a < gate) mono[i] *= (a / gate) * 0.9;
+    }
+    return mono;
+  }
+
+  function hearWavB64(audio) {
+    const chans = audio.numberOfChannels;
+    let mono = audio.getChannelData(0);
+    if (chans > 1) {
+      mono = new Float32Array(audio.length);
+      for (let c = 0; c < chans; c++) {
+        const d = audio.getChannelData(c);
+        for (let i = 0; i < audio.length; i++) mono[i] += d[i] / chans;
+      }
+    }
+    hearDenoise(mono, audio.sampleRate);
+    const ratio = audio.sampleRate / 16000;
+    const outLen = Math.max(1, Math.floor(mono.length / ratio));
+    const out = new Float32Array(outLen);
+    for (let i = 0; i < outLen; i++) out[i] = mono[Math.min(mono.length - 1, Math.floor(i * ratio))];
+    const n = out.length;
+    const buf = new ArrayBuffer(44 + n * 2);
+    const v = new DataView(buf);
+    const wstr = (o, s) => {
+      for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i));
+    };
+    wstr(0, 'RIFF');
+    v.setUint32(4, 36 + n * 2, true);
+    wstr(8, 'WAVE');
+    wstr(12, 'fmt ');
+    v.setUint32(16, 16, true);
+    v.setUint16(20, 1, true);
+    v.setUint16(22, 1, true);
+    v.setUint32(24, 16000, true);
+    v.setUint32(28, 16000 * 2, true);
+    v.setUint16(32, 2, true);
+    v.setUint16(34, 16, true);
+    wstr(36, 'data');
+    v.setUint32(40, n * 2, true);
+    for (let i = 0; i < n; i++) {
+      const s = Math.max(-1, Math.min(1, out[i]));
+      v.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+    }
+    const bytes = new Uint8Array(buf);
+    let bin = '';
+    for (let i = 0; i < bytes.length; i += 8192) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 8192));
+    return btoa(bin);
+  }
+
+  // Mic self-test: 4s from the chosen mic, live level meter, transcribe,
+  // and report whether her name (the wake word) was in it.
+  $('testHearMic')?.addEventListener('click', async () => {
+    const status = $('hearTestStatus');
+    const fill = $('hearMeterFill');
+    const set = (t) => {
+      if (status) status.textContent = t;
+    };
+    try {
+      await window.petAPI.saveConfig(readForm());
+    } catch (_) {}
+    try {
+      const devId = $('hearMicDeviceId') ? $('hearMicDeviceId').value : '';
+      set('Opening mic… (allow access if asked)');
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: devId
+          ? { deviceId: { exact: devId }, echoCancellation: false, noiseSuppression: false, autoGainControl: false }
+          : { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+      });
+      const AC = window.AudioContext || window.webkitAudioContext;
+      const actx = new AC();
+      if (actx.state === 'suspended') {
+        try {
+          await actx.resume();
+        } catch (_) {}
+      }
+      const src = actx.createMediaStreamSource(stream);
+      const an = actx.createAnalyser();
+      an.fftSize = 512;
+      src.connect(an);
+      const data0 = new Float32Array(an.fftSize);
+      // 1s room calibration first (stay silent) — same math as live loop.
+      set('Stay silent… measuring room noise');
+      const floors = [];
+      await new Promise((res) => {
+        const iv = setInterval(() => {
+          try {
+            an.getFloatTimeDomainData(data0);
+            let s = 0;
+            for (let i = 0; i < data0.length; i++) s += data0[i] * data0[i];
+            floors.push(Math.sqrt(s / data0.length));
+          } catch (_) {}
+          if (floors.length >= 10) {
+            clearInterval(iv);
+            res();
+          }
+        }, 90);
+      });
+      const floor = Math.max(0.001, floors.reduce((a, b) => a + b, 0) / Math.max(1, floors.length));
+      const trig = Math.max(0.015, Math.min(0.15, floor * 4));
+      const vadNote = ` Room ${floor.toFixed(3)}, trigger ${trig.toFixed(3)} — ${floor < 0.02 ? 'quiet room, live hearing should fire when you speak.' : floor < 0.05 ? 'noisy room — speak up clearly near the mic.' : 'VERY loud room — check mic gain/device below!'}`;
+      const rec = new MediaRecorder(stream);
+      const chunks = [];
+      rec.ondataavailable = (e) => {
+        if (e.data && e.data.size) chunks.push(e.data);
+      };
+      const done = new Promise((res) => {
+        rec.onstop = res;
+      });
+      rec.start(250);
+      set('Listening… speak now!');
+      const data = new Float32Array(an.fftSize);
+      const t0 = Date.now();
+      await new Promise((res) => {
+        const iv = setInterval(() => {
+          try {
+            an.getFloatTimeDomainData(data);
+            let s = 0;
+            for (let i = 0; i < data.length; i++) s += data[i] * data[i];
+            const rms = Math.sqrt(s / data.length);
+            if (fill) fill.style.width = `${Math.max(0, Math.min(100, rms * 400))}%`;
+          } catch (_) {}
+          if (Date.now() - t0 > 4000) {
+            clearInterval(iv);
+            res();
+          }
+        }, 90);
+      });
+      try {
+        if (rec.state !== 'inactive') rec.stop();
+      } catch (_) {}
+      await done;
+      stream.getTracks().forEach((t) => t.stop());
+      try {
+        actx.close();
+      } catch (_) {}
+      if (fill) fill.style.width = '0%';
+      if (!chunks.length) {
+        set('Heard nothing — the mic gave no audio.');
+        return;
+      }
+      set('Transcribing…');
+      const blob = new Blob(chunks, { type: 'audio/webm' });
+      const ab = await blob.arrayBuffer();
+      const dctx = new AC();
+      let audio = null;
+      try {
+        audio = await dctx.decodeAudioData(ab);
+      } catch (_) {}
+      try {
+        dctx.close();
+      } catch (_) {}
+      if (!audio) {
+        set('Could not decode mic audio.');
+        return;
+      }
+      let res2 = null;
+      try {
+        res2 = await window.petAPI.hearTranscribe(hearWavB64(audio));
+      } catch (_) {}
+      if (!res2?.ok || !res2.text) {
+        set(`Transcribe failed (${res2?.error || 'unknown'}${res2?.detail ? ': ' + res2.detail : ''}). Check AI key.`);
+        return;
+      }
+      const pet = getActivePet();
+      const nm = String(pet?.name || 'KURIZU').trim() || 'KURIZU';
+      const words = [nm, ...String(pet?.voiceWakeWords || '').split(',').map((s) => s.trim()).filter(Boolean)];
+      let hitWord = '';
+      for (const w of words) {
+        try {
+          if (new RegExp(`\\b${w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(res2.text)) {
+            hitWord = w;
+            break;
+          }
+        } catch (_) {}
+      }
+      set(`She heard (via ${res2.via || 'stt'}): "${res2.text}"${hitWord ? ` — "${hitWord}" detected, she would answer this!` : ` — no wake word (${words.join(', ')}) heard, so she'd stay quiet. Add what you see to "Also answer to".`}${vadNote}`);
+    } catch (_) {
+      set('Mic blocked or unavailable — allow mic access and retry.');
+    }
+  });
+
+  ['voiceHearEnabled', 'hearMicDeviceId', 'voiceHearModel', 'voiceHearProvider', 'voiceHearKey', 'voiceWakeWords'].forEach((id) => {
+    $(id)?.addEventListener('change', async () => {
+      queueSave();
+    });
+  });
+
   [
     'scale', 'moveSpeed', 'aggression', 'attackAnimMs',
     'headHitTop', 'headHitLeft', 'headHitWidth', 'headHitHeight',
     'musicThreshold', 'speechTop', 'speechLeft', 'speechMaxWidth', 'speechZoneHeight', 'speechFontSize',
-    'speechHitWidth', 'speechHitHeight', 'speechSoundVolume',
+    'speechHitWidth', 'speechHitHeight', 'speechSoundVolume', 'textBleepsVolume', 'vtsJamSens', 'vtsJamSmooth',
     'bodyHitTop', 'bodyHitLeft', 'bodyHitWidth', 'bodyHitHeight',
     'idleVarietyChance', 'smallWalkMinSec', 'smallWalkMaxSec', 'chaosCloseChance', 'petCollisionGap',
     'contextReactionCooldownSec',
   ].forEach((id) => {
-    $(id).addEventListener('input', async () => {
+    $(id)?.addEventListener('input', async () => {
       updateLabels();
-      if (id.startsWith('speech') || id.startsWith('bodyHit') || id === 'petCollisionGap' || id === 'showSpeechZone' || id === 'showBodyHitbox') {
+      if (id.startsWith('speech') || id.startsWith('bodyHit') || id.startsWith('textBleep') || id === 'petCollisionGap' || id === 'showSpeechZone' || id === 'showBodyHitbox') {
         queueSave();
       }
     });
@@ -2249,6 +3644,15 @@ async function init() {
     toggleVoxBuiltinBox();
     refreshVoxCoreStatus();
     await window.petAPI.saveConfig(readForm());
+    if (['edge', 'kokoro'].includes($('voiceVoxBackend')?.value)) {
+      await doRefreshVoxSpeakers();
+      const sel = $('voiceVoxSpeaker');
+      const def = $('voiceVoxBackend')?.value === 'edge' ? 'en-US-AnaNeural' : 'af_heart';
+      if (sel && [...sel.options].some((o) => /not in current voice list/.test(o.textContent) && o.selected) && [...sel.options].some((o) => o.value === def)) {
+        sel.value = def;
+        await window.petAPI.saveConfig(readForm());
+      }
+    }
   });
 
   $('voiceDevice')?.addEventListener('change', async () => {
@@ -2308,6 +3712,10 @@ async function init() {
     const el = $('voxCoreStatus');
     if (ev?.percent != null) setVoxProgress(ev.percent);
     if (el && ev?.message) el.textContent = ev.message;
+    if (ev?.message) {
+      const vs = $('voxStatus');
+      if (vs) vs.textContent = ev.message;
+    }
   });
 
   ['showHeadHitbox', 'showSpeechZone', 'showBodyHitbox', 'contextReactionsEnabled', 'speechSoundEnabled', 'speechSoundIdleOnly', 'voiceVoxEnabled', 'voiceVoxIdleOnly', 'voiceVoxReactions'].forEach((id) => {
@@ -2340,7 +3748,8 @@ async function init() {
   $('testVoxVoice')?.addEventListener('click', async () => {
     const el = $('voxStatus');
     await window.petAPI.saveConfig(readForm());
-    const backend = getActivePet().voiceVoxBackend === 'builtin' ? 'built-in' : 'external';
+    const vb = getActivePet().voiceVoxBackend;
+    const backend = vb === 'builtin' ? 'built-in' : vb === 'edge' ? 'Edge' : vb === 'kokoro' ? 'Kokoro' : 'external';
     if (el) el.textContent = `Synthesizing via ${backend}…`;
     const t0 = Date.now();
     const result = await window.petAPI.speakText(`Hello! I'm ${getActivePet().name || 'your pet'}!`);
@@ -2356,7 +3765,8 @@ async function init() {
           el.textContent = 'Synthesized but could not play.';
         }
       } else {
-        el.textContent = `Voice failed (${backend}): ${result?.error || 'unknown'}. External: launch VOICEVOX. Built-in: download it above.`;
+        const hint = vb === 'builtin' ? ' Built-in: download it above.' : vb === 'edge' ? ' Edge needs internet.' : vb === 'kokoro' ? ' Kokoro downloads its model on first use.' : ' External: launch VOICEVOX.';
+        el.textContent = `Voice failed (${backend}): ${result?.error || 'unknown'}.${hint}`;
       }
     }
   });
@@ -2400,7 +3810,7 @@ async function init() {
 
   $('testChaosClose').addEventListener('click', async () => {
     const ok = window.confirm(
-      'This will close ONE random open program window (not Virtual Pet).\n\nSave your work first. Continue?'
+      'This will close ONE random open program window (not Desktop Gremlin).\n\nSave your work first. Continue?'
     );
     if (!ok) return;
     await window.petAPI.saveConfig(readForm());

@@ -1,4 +1,4 @@
-/* Virtual Pet — prank overlay renderer.
+/* Desktop Gremlin — prank overlay renderer.
  * One effect per window. Runs the visuals + synthesized sound, then asks the
  * main process to close the window. Everything here is a harmless visual
  * prank except "realShutdown", which drives the OS shutdown countdown that

@@ -1,5 +1,30 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
+/* Mic test level meter. */
+.hear-meter {
+  height: 10px;
+  border-radius: 6px;
+  background: var(--meter-track, #edf2f7);
+  overflow: hidden;
+  margin: 6px 0 2px;
+}
+.hear-meter > i {
+  display: block;
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #d81b60, #8e24aa);
+  transition: width 80ms linear;
+}
+
+/* Stats tab: scrolling perf graphs. */
+.stat-graph {
+  width: 100%;
+  height: 64px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.28);
+  margin: 2px 0 10px;
+}
+
 :root,
 :root[data-theme='pink'] {
   --bg1: #f0f2f5;
@@ -564,6 +589,38 @@ body {
   flex: 1;
 }
 
+.main-footer-actions {
+  max-width: 560px;
+}
+
+.btn-quick {
+  flex: 0 1 auto;
+  padding: 7px 12px;
+  border-radius: 9px;
+  border: 1px solid var(--sidebar-border);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: filter 0.15s ease, transform 0.05s ease;
+}
+
+.btn-quick:hover {
+  filter: brightness(1.1);
+}
+
+.btn-quick:active {
+  transform: scale(0.96);
+}
+
+.btn-quick.on {
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  border-color: transparent;
+  color: #fff;
+}
+
 .hint {
   flex-shrink: 0;
   padding: 0 28px 14px;
@@ -720,6 +777,44 @@ section h2 {
   background: var(--input-bg);
   color: var(--text);
   font-size: 0.9rem;
+}
+
+.dj-now {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin: 8px 0 12px;
+}
+
+.dj-art {
+  width: 96px;
+  height: 96px;
+  border-radius: 12px;
+  object-fit: cover;
+  border: 2px solid #ff8fab;
+  flex: none;
+}
+
+.dj-now-meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.dj-viz {
+  width: 100%;
+  height: 64px;
+  display: block;
+  background: rgba(255, 143, 171, 0.08);
+  border-radius: 8px;
+}
+
+.dj-qthumb {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  object-fit: cover;
+  margin-right: 8px;
+  vertical-align: middle;
 }
 
 .btn-small {
@@ -971,6 +1066,21 @@ section h2 {
   font-weight: 600;
   color: var(--text);
   line-height: 1.4;
+}
+
+/* Small helper text under a field (not the centered .hint banner). */
+.field-hint {
+  display: block;
+  margin-top: 6px;
+  font-size: 0.78rem;
+  font-weight: 400;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.field-hint strong {
+  color: var(--text);
+  font-weight: 600;
 }
 
 .speech-field textarea {
@@ -1361,6 +1471,15 @@ button {
 
 .ocr-log-error {
   color: #d63031;
+}
+
+.dj-track {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--text);
+  margin: 2px 0 8px;
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
 }
 
 .tutorial-card {

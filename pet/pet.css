@@ -236,6 +236,29 @@ html, body {
 .speech u { text-decoration: underline; }
 .speech s { text-decoration: line-through; }
 
+/* VN text animations: per-letter spans added by the typewriter. */
+.speech.show { animation: bubblePop 0.18s ease-out; }
+@keyframes bubblePop {
+  0% { transform: scale(0.85); }
+  60% { transform: scale(1.03); }
+  100% { transform: scale(1); }
+}
+.speech .ch { display: inline-block; }
+.speech .ch-pop { animation: chPop 0.22s ease-out; }
+@keyframes chPop {
+  0% { transform: scale(0); }
+  70% { transform: scale(1.35); }
+  100% { transform: scale(1); }
+}
+.speech .ch-fade { animation: chFade 0.28s ease-in; }
+@keyframes chFade { from { opacity: 0; } to { opacity: 1; } }
+.speech .ch-wave { animation: chWave 1.1s ease-in-out infinite; }
+@keyframes chWave {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+.speech .ch-rainbow { animation: chWave 1.1s ease-in-out infinite; }
+
 #pet-area {
   position: absolute;
   inset: 0;
@@ -495,6 +518,16 @@ html, body {
   animation: defeat-droop 1.4s ease-in-out infinite;
 }
 
+#pet.show-thinking.use-custom-avatar .pet-sprite,
+#pet.state-thinking.use-custom-avatar .pet-sprite {
+  animation: thinking-bob 1.6s ease-in-out infinite;
+}
+
+@keyframes thinking-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+
 @keyframes defeat-droop {
   0%, 100% { transform: translateY(0) scaleY(1); }
   50% { transform: translateY(4px) scaleY(0.97); }
@@ -522,3 +555,100 @@ html.low-impact #speech-zone {
 #pet.use-custom-avatar:not(.sprite-flipped):not(.state-dance):not(.state-grab) {
   transform: none;
 }
+
+.debug-bounds {
+  position: fixed;
+  inset: 0;
+  border: 3px solid #00e5ff;
+  box-sizing: border-box;
+  pointer-events: none;
+  z-index: 99998;
+}
+.debug-floor {
+  position: fixed;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: #ff1744;
+  pointer-events: none;
+  z-index: 99999;
+}
+
+.debug-bounds #debug-bounds-label {
+  position: absolute;
+  top: 0;
+  left: 0;
+  background: rgba(0,0,0,0.75);
+  color: #00e5ff;
+  font: 10px/1.3 Consolas, monospace;
+  padding: 2px 4px;
+  white-space: nowrap;
+}
+
+/* ---------- wall slam ---------- */
+
+
+#pet.sling-hop {
+  animation: sling-hop 0.65s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+@keyframes sling-hop {
+  0% { transform: translateY(0); }
+  35% { transform: translateY(-24%); }
+  70% { transform: translateY(-5%); }
+  100% { transform: translateY(0); }
+}
+
+/* Being shaken around while grabbed: dizzy wobble. */
+#pet.is-shaken {
+  animation: shake-wobble 0.32s ease-in-out infinite;
+}
+
+@keyframes shake-wobble {
+  0%, 100% { transform: rotate(-4deg) scale(1.02, 0.98); }
+  50% { transform: rotate(4deg) scale(0.98, 1.02); }
+}
+
+
+
+#pet-root.slam-left #pet-area,
+#pet-root.slam-right #pet-area {
+  animation: slam-shake-x 0.42s ease-out;
+}
+
+#pet-root.slam-top #pet-area {
+  animation: slam-shake-y 0.42s ease-out;
+}
+
+@keyframes slam-shake-x {
+  0%, 100% { transform: translateX(0); }
+  15% { transform: translateX(calc(7px * var(--slam-power, 0.8))); }
+  35% { transform: translateX(calc(-5px * var(--slam-power, 0.8))); }
+  60% { transform: translateX(calc(2px * var(--slam-power, 0.8))); }
+}
+
+@keyframes slam-shake-y {
+  0%, 100% { transform: translateY(0); }
+  15% { transform: translateY(7px); }
+  35% { transform: translateY(-5px); }
+  60% { transform: translateY(2px); }
+}
+
+/* Minecraft-style hit flash: the whole sprite turns into a lit-up
+   silhouette for a few rapid flickers (alpha is preserved). */
+#sprite-img.is-hurt,
+#pet-fallback.is-hurt {
+  animation: hurt-flash 0.4s linear 1;
+}
+
+/* One hard blink per hit, Minecraft-style: instantly ON, instantly OFF.
+   Moderate red tint (sepia + hue-rotate + reduced brightness - not a
+   blinding red) with a red glow burst scaled by impact force. */
+@keyframes hurt-flash {
+  0%, 49% {
+    filter: sepia(1) saturate(3) hue-rotate(-45deg) brightness(0.85)
+      drop-shadow(0 0 var(--hurt-glow, 12px) rgba(255, 60, 60, 0.8));
+  }
+  50%, 100% { filter: none; }
+}
+

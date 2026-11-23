@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Desktop Gremlin — your desktop companion</title>
+<meta name="description" content="Desktop Gremlin: a living desktop companion with AI chat, screen vision, voice, stream integrations and more.">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<nav class="top">
+  <div class="wrap">
+    <a class="brand" href="#top">Desktop Gremlin</a>
+    <div class="links">
+      <a href="#editions">Download</a>
+      <a href="#features">Features</a>
+      <a href="#start">Get started</a>
+      <a href="#ai">AI setup</a>
+      <a href="#voice">Voice</a>
+      <a href="#vision">Vision</a>
+      <a href="#integrations">Integrations</a>
+      <a href="#commands">Commands</a>
+      <a href="#faq">FAQ</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap" id="top">
+  <header class="hero">
+    <div class="badge">v1.81.8 · Windows portable · free</div>
+    <div class="hero-flex">
+      <div class="hero-text">
+        <h1>A pet that lives <span>on your desktop.</span></h1>
+        <p class="sub">She wanders your screen, chats with AI, watches what you watch, talks back out loud, hangs out in your streams, dances to your music — and sleeps on schedule.</p>
+        <a class="btn" href="https://wizteria.itch.io/desktop-gremlin">Download full version</a>
+        <a class="btn ghost" href="#editions">Compare editions</a>
+        <p class="fine">One portable .exe, no installer. Your keys stay in a local config file on your PC.</p>
+      </div>
+      <figure class="hero-petbox">
+        <img id="heroPet" class="hero-pet" src="assets/pet-idle.gif" alt="KURIZU the desktop pet, idling">
+        <figcaption class="hero-hint">psst — click her, she dances</figcaption>
+      </figure>
+    </div>
+    <figure class="shot">
+      <img src="screenshots/desktop.jpg" alt="Desktop Gremlin wandering on a real desktop">
+      <figcaption>Her, on the job — wandering the desktop, minding your business.</figcaption>
+    </figure>
+  </header>
+
+  <section class="block" id="editions">
+    <h2>Two <span>editions</span></h2>
+    <p class="lead">Same gremlin, two sizes. Grab the full brain, or the lean build that skips the bots and heavy extras.</p>
+    <div class="grid">
+      <div class="card">
+        <h3>Desktop Gremlin — full</h3>
+        <p>Everything she can do: AI chat &amp; agent mode, screen vision + OCR, voice hearing, VTube Studio, TikTok, Discord bot with a DJ booth, Minecraft bot, pranks and live stats.</p>
+        <p><a class="btn" href="https://wizteria.itch.io/desktop-gremlin">Download full · 182MB</a></p>
+      </div>
+      <div class="card">
+        <h3>Desktop Gremlin Lite</h3>
+        <p>The essentials: the pet, customization, her speech, AI chat with her personality, screen vision, VTube Studio and chaos mode. No Discord, Minecraft, OCR or DJ — roughly half the download.</p>
+        <p><a class="btn" href="https://wizteria.itch.io/desktop-gremlin-lite-ver">Download Lite · 89MB</a></p>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="features">
+    <h2>What she <span>does</span></h2>
+    <p class="lead">One app, a whole personality. Everything below is already in the build — <strong>click any card</strong> to see her react.</p>
+    <div class="chips" role="group" aria-label="Filter features">
+      <button class="chip on" data-f="all" aria-pressed="true">All</button>
+      <button class="chip" data-f="pet" aria-pressed="false">🐾 Pet life</button>
+      <button class="chip" data-f="ai" aria-pressed="false">💬 Brains</button>
+      <button class="chip" data-f="voice" aria-pressed="false">🔊 Voice</button>
+      <button class="chip" data-f="stream" aria-pressed="false">📡 Streaming</button>
+    </div>
+    <div class="grid fgrid" id="featureGrid">
+      <img class="grid-pet" src="assets/pet-idle.gif" alt="" aria-hidden="true">
+      <div class="card fcard" data-cat="pet" data-ico="🐾" data-ask="*flings her across the screen*" data-say="WAAH— okay. Okay. I'm not talking to you for 17 seconds." data-anim="wave"><h3>Living desktop pet</h3><p>Wanders, naps, sits, dances, begs for head pats, gets flung with real physics, sulks when slammed into walls, plays tag and rock-paper-scissors, chases your cursor in play mode, and sleeps on a schedule you set.</p></div>
+      <div class="card fcard" data-cat="ai" data-ico="💬" data-ask="remember my cat is called Mochi" data-say="Got it! Mochi. I'll ask about Mochi every single day now." data-anim="pop"><h3>AI chat</h3><p>Talk in the chat window — she remembers facts, moods, and your shared history. Bring your own provider: <code>Ollama</code> local, <code>Gemini</code> direct, or <code>OpenRouter</code>.</p></div>
+      <div class="card fcard" data-cat="ai" data-ico="👀" data-ask="look at the screen" data-say="You have 47 tabs open… and wait, is that ME in the corner? Cute." data-anim="fade"><h3>Screen vision</h3><p>Ask her to <code>look at the screen</code> and she describes what she sees — and recognizes <em>herself</em> in it. Auto-looks react to games and app switches. Local or cloud models.</p></div>
+      <div class="card fcard" data-cat="voice" data-ico="🔊" data-ask="text anim rainbow" data-say="Ooh, sparkly! Now every word I say is a little party~" data-anim="rainbow"><h3>Voice &amp; sound</h3><p>Speaks via VOICEVOX, built-in voice, Edge TTS, or offline Kokoro. No voice? Undertale-style text bleeps + visual-novel typewriter with pop, wave, fade and rainbow effects.</p></div>
+      <div class="card fcard" data-cat="voice" data-ico="👂" data-ask="&quot;KURIZU, what time is it?&quot;" data-say="It's way past snack o'clock. Also 3:42 PM." data-anim="pop"><h3>She hears you</h3><p>Optional mic listening on <em>your</em> mic only. Say her name — <code>"KURIZU, what time is it?"</code> — and she answers. Transcribed via Gemini, Groq, or fully offline Whisper.</p></div>
+      <div class="card fcard" data-cat="stream" data-ico="🎭" data-ask="*starts playing music*" data-say="♪ This one's a bop — my Live2D self is already vibing ♪" data-anim="wave"><h3>VTube Studio</h3><p>Drives your Live2D model: lip-sync, idle sway, eyes-dart-first gaze tracking, talk wobble, smile-while-jamming to your music, plus hotkeys for talk, victory, defeat, dance and grabs.</p></div>
+      <div class="card fcard" data-cat="stream" data-ico="📡" data-ask="!play lofi beats" data-say="Now spinning: lofi beats. DJ KURIZU in the house!" data-anim="pop"><h3>Streams &amp; servers</h3><p>Reads TikTok LIVE chat, answers Discord DMs and mentions, DJs music in voice channels (<code>!play</code>, smart <code>!shuffle</code>), and joins Minecraft servers as a real player that follows and chats.</p></div>
+      <div class="card fcard" data-cat="pet" data-ico="🎀" data-ask="*adds a second pet*" data-say="A friend?! I'm giving her my best rock. We're playing tag now." data-anim="rainbow"><h3>Looks your way</h3><p>GIF avatar slots for every mood, per-pet characters, speech-bubble themes, multi-pet households that bond, greet, gift and play tag with each other.</p></div>
+      <div class="card fcard" data-cat="ai" data-ico="📊" data-ask="*opens the Stats tab mid-game*" data-say="See? Vision only took a little VRAM. I'm a very efficient gremlin." data-anim="fade"><h3>Stats tab</h3><p>Live CPU, RAM and VRAM graphs built in — see exactly what vision, voice and Ollama cost while you game. AMD supported via Windows counters.</p></div>
+    </div>
+  </section>
+
+  <section class="block" id="start">
+    <h2>Get <span>started</span></h2>
+    <p class="lead">Five minutes, no account needed. Tick off each step as you go — your progress is saved.</p>
+    <div class="progress" aria-live="polite">
+      <div class="ptrack">
+        <div class="pfill" id="pFill"></div>
+        <img class="pwalker" id="pWalker" src="assets/pet-idle.gif" alt="" aria-hidden="true">
+      </div>
+      <div class="pmeta"><span id="pCount">0 / 5 done</span><button class="preset" id="pReset" type="button">Reset</button></div>
+    </div>
+    <ol class="steps isteps" id="steps">
+      <li>
+        <button class="shead" type="button" aria-expanded="false">Run the portable exe<span class="chev" aria-hidden="true"></span></button>
+        <div class="sbody"><div class="sin">
+          <p>Run <code>Desktop Gremlin 1.80.0.exe</code> <button class="copy" type="button" data-copy="Desktop Gremlin 1.80.0.exe">Copy</button> — portable, no install.</p>
+          <small>Windows may SmartScreen-flag unsigned exes: More info → Run anyway.</small>
+          <div class="sact"><a class="mini" href="https://wizteria.itch.io/desktop-gremlin">Download it first</a><button class="done" type="button">Done — next step</button></div>
+        </div></div>
+      </li>
+      <li>
+        <button class="shead" type="button" aria-expanded="false">Open Settings from the tray<span class="chev" aria-hidden="true"></span></button>
+        <div class="sbody"><div class="sin">
+          <p>Find the pink tray icon by your clock → <strong>Settings</strong>, or right-click her once she appears.</p>
+          <figure class="shot">
+            <img src="screenshots/settings.jpg" alt="Desktop Gremlin settings window with its tabs" loading="lazy">
+            <figcaption>The real settings window — every tab is one click away.</figcaption>
+          </figure>
+          <div class="sact"><button class="done" type="button">Done — next step</button></div>
+        </div></div>
+      </li>
+      <li>
+        <button class="shead" type="button" aria-expanded="false">Turn her on<span class="chev" aria-hidden="true"></span></button>
+        <div class="sbody"><div class="sin">
+          <p>Press <strong>Turn pet ON</strong> — she drops onto the bottom of your screen.</p>
+          <div class="sact"><button class="done" type="button">She's here — next</button></div>
+        </div></div>
+      </li>
+      <li>
+        <button class="shead" type="button" aria-expanded="false">Dress her up<span class="chev" aria-hidden="true"></span></button>
+        <div class="sbody"><div class="sin">
+          <p>Character tab → pick a companion so she's dressed head to toe.</p>
+          <div class="sact"><button class="done" type="button">Looking good — next</button></div>
+        </div></div>
+      </li>
+      <li>
+        <button class="shead" type="button" aria-expanded="false">Give her a brain<span class="chev" aria-hidden="true"></span></button>
+        <div class="sbody"><div class="sin">
+          <p>Pick an AI provider below (<a href="#ai">AI setup</a>) — without one she's cute but quiet.</p>
+          <div class="sact"><a class="mini" href="#ai">Open AI setup</a><button class="done" type="button">All set!</button></div>
+        </div></div>
+      </li>
+    </ol>
+    <div class="celebrate" id="celebrate" hidden>
+      <img src="assets/pet-dance.gif" alt="KURIZU dancing">
+      <div><strong>You did it!</strong> She's alive, dressed and thinking. Next up: <a href="#voice">give her a voice</a> or <a href="#integrations">bring her to your stream</a>.</div>
+    </div>
+  </section>
+
+  <section class="block" id="ai">
+    <h2>Give her a <span>brain</span></h2>
+    <p class="lead">Settings → Speech tab → AI. Pick exactly one path. Everything else falls back automatically.</p>
+    <div class="grid">
+      <div class="card"><h3>Option A — Ollama (local, private)</h3><p>Install Ollama, then pull a chat model:</p><pre>ollama pull llama3.1:8b   <b># balanced</b>
+ollama pull dolphin3:8b    <b># spicier</b></pre><p>Set provider to <code>ollama</code>, model to what you pulled. Nothing leaves your PC.</p></div>
+      <div class="card"><h3>Option B — Gemini (online, free tier)</h3><p>Get a key at <code>Google AI Studio</code>, paste it as the AI key, endpoint:</p><pre>https://generativelanguage.googleapis.com/v1beta/openai</pre><p>Use a model ID your key actually lists — check <code>/v1beta/models?key=YOUR_KEY</code> in a browser. Working picks include <code>gemini-2.5-flash-lite</code> and <code>gemini-3.8-flash</code>. Retired IDs 404 — the list is truth.</p></div>
+      <div class="card"><h3>Option C — OpenRouter (online, many models)</h3><p>Paste an <code>sk-or-…</code> key, endpoint <code>https://openrouter.ai/api/v1</code>. Model IDs need the provider prefix, e.g. <code>google/gemini-2.5-flash</code> — bare IDs 404 here. Buy $10 of credits once to lift free-model limits.</p></div>
+    </div>
+    <div class="warn"><strong>Endpoint + model must match as a pair.</strong> Google endpoint ↔ bare <code>gemini-…</code> IDs. OpenRouter endpoint ↔ prefixed IDs like <code>google/…</code>. Mixing them is the #1 cause of <code>http-404</code>.</div>
+  </section>
+
+  <section class="block" id="voice">
+    <h2>Voice, <span>ears &amp; text flavor</span></h2>
+    <p class="lead">Settings → Voice tab.</p>
+    <table class="ref">
+      <tr><th>TTS backend</th><th>What it needs</th></tr>
+      <tr><td><code>VOICEVOX app</code></td><td>VOICEVOX running on <code>127.0.0.1:50021</code>. Japanese voices — English sounds charmingly robotic.</td></tr>
+      <tr><td><code>Built-in</code></td><td>One-time ~180MB voice pack download. No extra app.</td></tr>
+      <tr><td><code>Edge TTS</code></td><td>Online, keyless, cute voices. Needs internet.</td></tr>
+      <tr><td><code>Kokoro</code></td><td>Offline, ~90MB model on first use.</td></tr>
+    </table>
+    <p class="lead">No voice? She still talks: synth <strong>text bleeps</strong> (own volume slider), <strong>typewriter</strong> reveal, and animations — <code>pop</code>, <code>wave</code>, <code>fade</code>, <code>rainbow</code>. Switch live by chatting <code>text anim rainbow</code>, or pick in settings and hit <strong>Preview on pet</strong>.</p>
+    <p class="lead"><strong>Hearing you:</strong> tick <em>Listen for my voice</em>, Refresh mics, pick <strong>your</strong> mic (she captures only that device), choose a transcriber — Gemini (AI key), Groq Whisper (free <code>gsk_…</code> key), or Local Whisper (<code>Xenova/whisper-tiny.en</code>, ~40MB once, offline). Then say her name: <code>"KURIZU, what time is it?"</code> Whisper mangles names, so add what it hears to <strong>Also answer to</strong> (e.g. <code>Corisoo</code>). The <strong>Test mic (4s)</strong> button proves the whole chain and tells you your room-noise level.</p>
+  </section>
+
+  <section class="block" id="vision">
+    <h2>Screen <span>vision</span></h2>
+    <p class="lead">Settings → Vision tab. Chat <code>look at the screen</code> anytime, or hit Test.</p>
+    <table class="ref">
+      <tr><th>Mode</th><th>Setup</th></tr>
+      <tr><td><code>Local</code></td><td><code>ollama pull qwen2.5vl:7b</code> (or <code>qwen3-vl:8b-instruct</code> — the plain <code>:8b</code> tag thinks out loud). Free, private, costs VRAM per look.</td></tr>
+      <tr><td><code>Cloud</code></td><td>Same endpoint/key rules as AI setup. <code>gemini-3.8-flash</code> is the current safe pick. No VRAM cost.</td></tr>
+    </table>
+    <p class="lead">Quality <code>fast</code> keeps captures tiny (good for free-tier token caps); game-looks hype your gameplay on an interval; auto-looks fire on app switches with anti-repeat so she doesn't narrate the same screen twice.</p>
+  </section>
+
+  <section class="block" id="integrations">
+    <h2>Streams, chats <span>&amp; stages</span></h2>
+    <div class="grid">
+      <div class="card"><h3>Discord bot</h3><p>discord.com/developers → app → Bot → Reset Token → turn ON <strong>Message Content Intent</strong> → invite with <code>bot</code> scope. Paste the token in the Discord tab. She answers <strong>DMs and @mentions</strong> (plus <code>!</code> music commands). <strong>Channel ID must be a <em>text</em> channel</strong> — a voice-channel ID silences her everywhere. Blank = all channels.</p></div>
+      <div class="card"><h3>DJ booth</h3><p>In a voice channel: <code>!join</code>, <code>!play &lt;song or link&gt;</code> (Spotify links too), <code>!skip</code>, <code>!pause</code>/<code>!resume</code>, <code>!loop [track|queue|off]</code>, smart <code>!shuffle [on|off]</code> (random, no repeats till everything played), <code>!queue</code>, <code>!leave</code>. FFmpeg ships built in; some YouTube videos want your cookie (field in Discord tab).</p></div>
+      <div class="card"><h3>TikTok LIVE</h3><p>Put your <code>@username</code> in the TikTok tab — she auto-connects on boot, reads chat, reacts to gifts and follows, and announces trending topics.</p></div>
+      <div class="card"><h3>Minecraft</h3><p>She joins Java Edition as a real player: follows you, wanders, wears found armor, sleeps at night, answers chat. LAN/offline servers need just a name; online-mode needs the Microsoft device-code login once.</p></div>
+      <div class="card"><h3>VTube Studio</h3><p>VTS → Settings → API → <strong>Allow Plugin API access</strong>, default port <code>8001</code>. Connect from the VTube tab (approve the popup). You get lip-sync, idle sway, eyes-dart-first gaze tracking, talk wobble, beat-locked dance jam with smile, and hotkeys for talk/victory/defeat/dance/grab — with sensitivity, smoothness and smile sliders.</p></div>
+      <div class="card"><h3>Goodnight + play</h3><p>Behavior tab: a <strong>sleep schedule</strong> (default 23:00–07:00, chats/grabs/pats snooze it 10 min) and <strong>play mode</strong> — she chases your cursor and pounces. Or chat <code>play mode on</code>.</p></div>
+    </div>
+  </section>
+
+  <section class="block" id="commands">
+    <h2>Command <span>cheat-sheet</span></h2>
+    <table class="ref">
+      <tr><th>Where</th><th>Command</th><th>Does</th></tr>
+      <tr><td>Chat</td><td><code>look at the screen</code></td><td>She describes your screen (also: what do you see?)</td></tr>
+      <tr><td>Chat</td><td><code>agent mode on / chat mode</code></td><td>Everything becomes a task / back to chatter</td></tr>
+      <tr><td>Chat</td><td><code>play mode on / off</code></td><td>Cursor chase + pounce</td></tr>
+      <tr><td>Chat</td><td><code>text anim wave</code></td><td>Try pop / fade / rainbow / typewriter / off live</td></tr>
+      <tr><td>Chat</td><td><code>rock / guess / games</code></td><td>Mini-games in chat</td></tr>
+      <tr><td>Voice</td><td><code>"KURIZU, …"</code></td><td>Wake word + command, hands-free</td></tr>
+      <tr><td>Discord</td><td><code>!play / !skip / !shuffle / !loop / !queue / !spotify / !leave</code></td><td>DJ booth (plus <code>!pause</code>, <code>!resume</code>, <code>!join</code>)</td></tr>
+    </table>
+  </section>
+
+  <section class="block" id="faq">
+    <h2>Fix-it <span>FAQ</span></h2>
+    <details class="faq"><summary>Vision: http-402 (credits / prompt tokens)</summary><div>OpenRouter account cap, not the model. Shrink Quality to <code>fast</code>, space out looks — or go Local / Gemini to dodge it. New models won't help; only credits or a different provider will.</div></details>
+    <details class="faq"><summary>Vision: http-404 (model not found)</summary><div>Endpoint↔model mismatch, or a retired ID (<code>gemini-2.5-flash</code> is retired for new users; <code>gemini-3.8-flash</code> is the replacement). Verify IDs against <code>/v1beta/models?key=…</code>. OpenRouter IDs need the <code>google/</code> prefix.</div></details>
+    <details class="faq"><summary>Vision: quota / rate-limit errors</summary><div>Free-tier throttle — it auto-retries once, then wait a minute. Stretch cooldowns, or use Local for frequent auto-looks and cloud for on-demand asks.</div></details>
+    <details class="faq"><summary>DJ: "FFmpeg not found"</summary><div>Fixed since 1.78.3 — FFmpeg ships inside the app. Update your exe.</div></details>
+    <details class="faq"><summary>She went silent after I threw her at a wall</summary><div>That's the sulk (capped ~17s now, it used to feel like forever) — plus impact barks no longer murder her sentence mid-word. She'll finish talking, yelp, then sulk briefly.</div></details>
+    <details class="faq"><summary>Mic test works but live hearing never fires</summary><div>Check the test's room-noise verdict: quiet room = should fire; noisy = speak up / lower mic gain / pick the physical mic, not a virtual cable. The trigger auto-calibrates, but it can't beat a loud room.</div></details>
+    <details class="faq"><summary>Discord bot online but never replies</summary><div>Checklist: Message Content Intent ON in the portal; talk in a <strong>text</strong> channel (voice-channel IDs silence her); @mention her or DM her — plain chatter is ignored by design.</div></details>
+    <details class="faq"><summary>Stats GPU shows n/a</summary><div>NVIDIA works via nvidia-smi; AMD/Intel via Windows counters. Old Windows builds without GPU counters can't report VRAM — CPU/RAM graphs still work.</div></details>
+    <details class="faq"><summary>Pet disappears under fullscreen games</summary><div>Borderless games: she re-asserts on top automatically. True exclusive-fullscreen can't be overlaid by any app — switch the game to borderless.</div></details>
+    <details class="faq"><summary>App's volume looks low / drops in the Windows volume mixer</summary><div>Two things stack. (1) Windows "Communications activity" ducking: Sound Control Panel → <strong>Communications</strong> tab → set "Do nothing". (2) Capture sessions (mic, system-audio for dancing) used to trigger Chromium's echo-cancellation ducking — fixed in 1.80.0 by disabling AEC/AGC and reusing a single audio context. Text bleeps also now run at a fuller level so they stop dragging the session down.</div></details>
+  </section>
+
+  <section class="block" id="start2">
+    <h2>Ready? <span>Go get her.</span></h2>
+    <p class="lead">Free download on itch.io — portable exe, then follow <a href="#start">Get started</a> ↑</p>
+    <a class="btn" href="https://wizteria.itch.io/desktop-gremlin">Download on itch.io</a>
+    <a class="btn ghost" href="#start">Setup guide</a>
+  </section>
+
+  <footer>Made by Kurizu · Desktop Gremlin v1.80.0 · keys never leave your PC</footer>
+</div>
+
+<script>
+// Click-the-pet: she dances for a few seconds, then goes back to idle.
+(function () {
+  var pet = document.getElementById('heroPet');
+  var back = null;
+  if (pet) {
+    pet.addEventListener('click', function () {
+      pet.src = 'assets/pet-dance.gif';
+      pet.classList.add('dancing');
+      clearTimeout(back);
+      back = setTimeout(function () {
+        pet.src = 'assets/pet-idle.gif';
+        pet.classList.remove('dancing');
+      }, 4000);
+    });
+  }
+  // Scroll reveal for sections and cards.
+  if ('IntersectionObserver' in window) {
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+      });
+    }, { threshold: 0.1 });
+    document.querySelectorAll('.block, .card').forEach(function (el) {
+      el.classList.add('rv');
+      io.observe(el);
+    });
+  }
+
+  var calm = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var hover = window.matchMedia && window.matchMedia('(hover: hover)').matches;
+
+  // ---------- What she does: filters, tilt, hopping pet, click-to-demo ----------
+  var grid = document.getElementById('featureGrid');
+  var cards = grid ? [].slice.call(grid.querySelectorAll('.fcard')) : [];
+  var gpet = grid && grid.querySelector('.grid-pet');
+  var lastX = 0;
+
+  function hopTo(card) {
+    if (!gpet || !hover) return;
+    var x = card.offsetLeft + card.offsetWidth - 74;
+    gpet.style.transform = 'translate(' + x + 'px,' + (card.offsetTop - 52) + 'px) scaleX(' + (x < lastX ? -1 : 1) + ')';
+    gpet.classList.add('show');
+    lastX = x;
+  }
+
+  function typeOut(el, text, anim) {
+    el.textContent = '';
+    el.className = 'say a-' + anim;
+    if (calm) { el.textContent = text; return; }
+    var i = 0;
+    (function next() {
+      if (i >= text.length || !el.isConnected) return;
+      var ch = document.createElement('span');
+      ch.textContent = text[i];
+      ch.style.setProperty('--i', i);
+      el.appendChild(ch);
+      i++;
+      setTimeout(next, /[.,!?…~]/.test(text[i - 1]) ? 140 : 28);
+    })();
+  }
+
+  cards.forEach(function (card) {
+    card.setAttribute('tabindex', '0');
+    card.setAttribute('role', 'button');
+    card.setAttribute('aria-expanded', 'false');
+    var ico = document.createElement('span');
+    ico.className = 'ico';
+    ico.setAttribute('aria-hidden', 'true');
+    ico.textContent = card.dataset.ico;
+    card.insertBefore(ico, card.firstChild);
+    var demo = document.createElement('div');
+    demo.className = 'demo';
+    demo.innerHTML = '<div class="din"><div class="you"></div><div class="her"><img src="assets/pet-idle.gif" alt=""><p class="say"></p></div></div>';
+    demo.querySelector('.you').textContent = 'you: ' + card.dataset.ask;
+    card.appendChild(demo);
+
+    function toggle() {
+      var open = !card.classList.contains('open');
+      cards.forEach(function (c) { c.classList.remove('open'); c.setAttribute('aria-expanded', 'false'); });
+      if (open) {
+        card.classList.add('open');
+        card.setAttribute('aria-expanded', 'true');
+        typeOut(demo.querySelector('.say'), card.dataset.say, card.dataset.anim);
+        if (gpet) {
+          gpet.src = 'assets/pet-dance.gif';
+          clearTimeout(gpet._t);
+          gpet._t = setTimeout(function () { gpet.src = 'assets/pet-idle.gif'; }, 2500);
+        }
+      }
+      requestAnimationFrame(function () { hopTo(card); });
+    }
+    card.addEventListener('click', function (e) { if (!e.target.closest('a')) toggle(); });
+    card.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); }
+    });
+    card.addEventListener('mouseenter', function () { hopTo(card); });
+    card.addEventListener('focus', function () { hopTo(card); });
+    if (hover && !calm) {
+      card.addEventListener('mousemove', function (e) {
+        var r = card.getBoundingClientRect();
+        var px = (e.clientX - r.left) / r.width, py = (e.clientY - r.top) / r.height;
+        card.style.setProperty('--mx', px * 100 + '%');
+        card.style.setProperty('--my', py * 100 + '%');
+        card.style.transform = 'perspective(700px) rotateX(' + (0.5 - py) * 7 + 'deg) rotateY(' + (px - 0.5) * 7 + 'deg) translateY(-3px)';
+      });
+      card.addEventListener('mouseleave', function () { card.style.transform = ''; });
+    }
+  });
+  if (grid) grid.addEventListener('mouseleave', function () { if (gpet) gpet.classList.remove('show'); });
+
+  document.querySelectorAll('.chip').forEach(function (chip) {
+    chip.addEventListener('click', function () {
+      var f = chip.dataset.f;
+      document.querySelectorAll('.chip').forEach(function (c) {
+        c.classList.toggle('on', c === chip);
+        c.setAttribute('aria-pressed', c === chip ? 'true' : 'false');
+      });
+      if (gpet) gpet.classList.remove('show');
+      cards.forEach(function (c) {
+        var show = f === 'all' || c.dataset.cat === f;
+        c.classList.add('in');
+        c.classList.toggle('gone', !show);
+        if (show) { c.classList.remove('pop'); void c.offsetWidth; c.classList.add('pop'); }
+      });
+    });
+  });
+
+  // ---------- Get started: checklist with saved progress ----------
+  var list = document.getElementById('steps');
+  if (list) {
+    var items = [].slice.call(list.children);
+    var KEY = 'dg-setup-steps';
+    var done = [];
+    try { done = JSON.parse(localStorage.getItem(KEY)) || []; } catch (e) {}
+    var fill = document.getElementById('pFill');
+    var walker = document.getElementById('pWalker');
+    var count = document.getElementById('pCount');
+    var party = document.getElementById('celebrate');
+    var wasComplete = null;
+
+    function open(idx) {
+      items.forEach(function (li, i) {
+        var on = i === idx && !li.classList.contains('open');
+        li.classList.toggle('open', on);
+        li.querySelector('.shead').setAttribute('aria-expanded', on ? 'true' : 'false');
+      });
+    }
+
+    function render() {
+      var n = 0;
+      items.forEach(function (li, i) {
+        var d = done.indexOf(i) !== -1;
+        li.classList.toggle('done', d);
+        if (d) n++;
+      });
+      var pct = n / items.length * 100;
+      fill.style.width = pct + '%';
+      walker.style.left = pct + '%';
+      count.textContent = n + ' / ' + items.length + ' done';
+      var complete = n === items.length;
+      walker.src = complete ? 'assets/pet-dance.gif' : 'assets/pet-idle.gif';
+      party.hidden = !complete;
+      if (complete && wasComplete === false) hearts();
+      wasComplete = complete;
+      try { localStorage.setItem(KEY, JSON.stringify(done)); } catch (e) {}
+    }
+
+    function hearts() {
+      if (calm) return;
+      var box = list.getBoundingClientRect();
+      for (var k = 0; k < 26; k++) {
+        var h = document.createElement('span');
+        h.className = 'heart';
+        h.textContent = ['💖', '✨', '🌸', '💜'][k % 4];
+        h.style.left = (box.left + Math.random() * box.width) + 'px';
+        h.style.top = (box.bottom - 40) + 'px';
+        h.style.setProperty('--dx', (Math.random() * 160 - 80) + 'px');
+        h.style.animationDelay = Math.random() * 0.4 + 's';
+        document.body.appendChild(h);
+        setTimeout(function (el) { el.remove(); }.bind(null, h), 2200);
+      }
+    }
+
+    items.forEach(function (li, i) {
+      li.querySelector('.shead').addEventListener('click', function () { open(i); });
+      li.querySelector('.done').addEventListener('click', function () {
+        if (done.indexOf(i) === -1) done.push(i);
+        render();
+        var next = -1;
+        for (var j = 1; j <= items.length; j++) {
+          var k = (i + j) % items.length;
+          if (done.indexOf(k) === -1) { next = k; break; }
+        }
+        items[i].classList.remove('open');
+        open(next);
+        if (next !== -1) requestAnimationFrame(function () {
+          var r = items[next].getBoundingClientRect();
+          if (r.top < 80 || r.bottom > window.innerHeight) {
+            items[next].scrollIntoView({ behavior: calm ? 'auto' : 'smooth', block: 'center' });
+          }
+        });
+      });
+    });
+
+    list.querySelectorAll('.copy').forEach(function (b) {
+      b.addEventListener('click', function () {
+        if (!navigator.clipboard) return;
+        navigator.clipboard.writeText(b.dataset.copy).then(function () {
+          b.textContent = 'Copied!';
+          setTimeout(function () { b.textContent = 'Copy'; }, 1400);
+        });
+      });
+    });
+
+    document.getElementById('pReset').addEventListener('click', function () {
+      done = []; wasComplete = false; render(); open(0);
+    });
+
+    render();
+    var first = -1;
+    for (var q = 0; q < items.length; q++) { if (done.indexOf(q) === -1) { first = q; break; } }
+    if (first !== -1) open(first);
+  }
+})();
+</script>
+
+</body>
+</html>

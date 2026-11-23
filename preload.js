@@ -7,6 +7,28 @@ contextBridge.exposeInMainWorld('petAPI', {
   restoreBackup: () => ipcRenderer.invoke('restore-backup'),
   getFactoryDefaults: () => ipcRenderer.invoke('get-factory-defaults'),
   getCursor: () => ipcRenderer.invoke('get-cursor'),
+  isGrabButtonDown: (button) => ipcRenderer.invoke('grab-button-down', button),
+  tiktokConnect: (username) => ipcRenderer.invoke('tiktok-connect', username),
+  tiktokTestComment: (text) => ipcRenderer.invoke('tiktok-test-comment', text),
+  tiktokDisconnect: () => ipcRenderer.invoke('tiktok-disconnect'),
+  tiktokState: () => ipcRenderer.invoke('tiktok-state'),
+  tiktokLogGet: () => ipcRenderer.invoke('tiktok-log-get'),
+  onTiktokStatus: (cb) => {
+    ipcRenderer.on('tiktok-status', (_, data) => cb(data));
+  },
+  onTiktokLog: (cb) => {
+    ipcRenderer.on('tiktok-log', (_, data) => cb(data));
+  },
+  onPetSay: (cb) => {
+    ipcRenderer.on('pet-say', (_, data) => cb(data));
+  },
+  previewSay: () => ipcRenderer.invoke('pet-preview-say'),
+  reportSpeech: (data) => ipcRenderer.send('pet-speech', data),
+  reportSpeechEnd: () => ipcRenderer.send('pet-speech-end'),
+  onSubtitle: (cb) => ipcRenderer.on('subtitle-text', (_, data) => cb(data)),
+  hearTranscribe: (b64) => ipcRenderer.invoke('voice-transcribe', b64),
+  warmBrain: () => ipcRenderer.invoke('brain-warm'),
+  statsSample: () => ipcRenderer.invoke('stats-sample'),
   getWorkArea: () => ipcRenderer.invoke('get-work-area'),
   getOtherPets: () => ipcRenderer.invoke('get-other-pets'),
   getPetBounds: () => ipcRenderer.invoke('get-pet-bounds'),
@@ -85,7 +107,7 @@ contextBridge.exposeInMainWorld('petAPI', {
   testTagSession: () => ipcRenderer.invoke('test-tag-session'),
   testGift: () => ipcRenderer.invoke('test-gift'),
   voxTest: () => ipcRenderer.invoke('vox-test'),
-  voxSpeakers: () => ipcRenderer.invoke('vox-speakers'),
+  voxSpeakers: (backend) => ipcRenderer.invoke('vox-speakers', backend),
   speakText: (text, petId) => ipcRenderer.invoke('vox-speak', text, petId),
   voxCoreStatus: () => ipcRenderer.invoke('vox-core-status'),
   voxCoreDownload: () => ipcRenderer.invoke('vox-core-download'),
@@ -101,6 +123,14 @@ contextBridge.exposeInMainWorld('petAPI', {
     ipcRenderer.on('gift-give-now', (_, data) => cb(data));
   },
   chatSend: (data) => ipcRenderer.send('chat-send', data),
+  setAgentMode: (data) => ipcRenderer.send('agent-mode-set', data),
+  setTheme: (theme) => ipcRenderer.send('set-theme', { theme }),
+  onTheme: (cb) => {
+    ipcRenderer.on('theme', (_, data) => cb(data));
+  },
+  onAgentMode: (cb) => {
+    ipcRenderer.on('agent-mode', (_, data) => cb(data));
+  },
   chatReply: (data) => ipcRenderer.send('chat-reply', data),
   onChatMessage: (cb) => {
     ipcRenderer.on('chat-message', (_, data) => cb(data));
@@ -110,6 +140,65 @@ contextBridge.exposeInMainWorld('petAPI', {
   },
   aiChat: (messages) => ipcRenderer.invoke('ai-chat', messages),
   proactiveChat: (brief) => ipcRenderer.invoke('proactive-chat', brief),
+  agentChat: (messages) => ipcRenderer.invoke('agent-chat', messages),
+  agentApprove: (sessionId, approved) => ipcRenderer.invoke('agent-approve', sessionId, approved),
+  chatApprove: (data) => ipcRenderer.invoke('chat-approve', data),
+  discordTest: () => ipcRenderer.invoke('discord-test'),
+  discordAction: (action, query) => ipcRenderer.invoke('discord-action', action, query),
+  musicState: () => ipcRenderer.invoke('music-state'),
+  musicPause: () => ipcRenderer.invoke('music-pause'),
+  musicResume: () => ipcRenderer.invoke('music-resume'),
+  musicStop: () => ipcRenderer.invoke('music-stop'),
+  musicSkip: () => ipcRenderer.invoke('music-skip'),
+  musicLoop: () => ipcRenderer.invoke('music-loop'),
+  musicVolume: (v) => ipcRenderer.invoke('music-volume', v),
+  onMusicLevel: (cb) => {
+    ipcRenderer.on('music-level', (_, d) => cb(d));
+  },
+  onDiscordStatus: (cb) => {
+    ipcRenderer.on('discord-status', (_, data) => cb(data));
+  },
+  mcConnect: () => ipcRenderer.invoke('mc-connect'),
+  mcDisconnect: () => ipcRenderer.invoke('mc-disconnect'),
+  mcState: () => ipcRenderer.invoke('mc-state'),
+  onMcStatus: (cb) => {
+    ipcRenderer.on('mc-status', (_, data) => cb(data));
+  },
+  onMcLog: (cb) => {
+    ipcRenderer.on('mc-log', (_, data) => cb(data));
+  },
+  visionLook: (reason) => ipcRenderer.invoke('vision-look', reason),
+  visionTest: () => ipcRenderer.invoke('vision-test'),
+  applyPetQuality: (quality) => ipcRenderer.invoke('apply-pet-quality', quality),
+  displayInfo: () => ipcRenderer.invoke('display-info'),
+  vtsConnect: () => ipcRenderer.invoke('vts-connect'),
+  vtsDisconnect: () => ipcRenderer.invoke('vts-disconnect'),
+  vtsResetToken: () => ipcRenderer.invoke('vts-reset-token'),
+  vtsHotkeys: () => ipcRenderer.invoke('vts-hotkeys'),
+  vtsTrigger: (name) => ipcRenderer.invoke('vts-trigger', name),
+  vtsParamTest: () => ipcRenderer.invoke('vts-param-test'),
+  vtsState: () => ipcRenderer.invoke('vts-state'),
+  onVtsStatus: (cb) => {
+    ipcRenderer.on('vts-status', (_, d) => cb(d));
+  },
+  vtsEvent: (kind) => ipcRenderer.send('vts-event', kind),
+  vtsBeat: (level) => ipcRenderer.send('vts-beat', { level }),
+  vtsParam: (data) => ipcRenderer.send('vts-param', data),
+  onDisplayChange: (cb) => {
+    ipcRenderer.on('pet-display-change', () => cb());
+  },
+  onVisionResult: (cb) => {
+    ipcRenderer.on('vision-result', (_, data) => cb(data));
+  },
+  onVisionStatus: (cb) => {
+    ipcRenderer.on('vision-status', (_, data) => cb(data));
+  },
+  onVisionTelemetry: (cb) => {
+    ipcRenderer.on('vision-telemetry', (_, data) => cb(data));
+  },
+  onAgentResult: (cb) => {
+    ipcRenderer.on('agent-result', (_, data) => cb(data));
+  },
   aiStatus: () => ipcRenderer.invoke('ai-status'),
 
   testForegroundContext: (options) => ipcRenderer.invoke('test-foreground-context', options),

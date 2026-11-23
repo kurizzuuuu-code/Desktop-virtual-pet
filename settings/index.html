@@ -3,8 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Virtual Pet Settings</title>
+  <title>Desktop Gremlin Settings</title>
+  <link rel="stylesheet" href="fonts.css">
   <link rel="stylesheet" href="settings.css">
+  <link rel="stylesheet" href="portfolio-skin.css">
   <script>
     try {
       var t = localStorage.getItem('vp-theme') || 'pink';
@@ -21,7 +23,7 @@
       <div class="sidebar-brand">
         <div class="brand-mark">🐾</div>
         <div>
-          <h1>Virtual Pet</h1>
+          <h1>Desktop Gremlin</h1>
           <p>Settings console</p>
         </div>
       </div>
@@ -40,8 +42,15 @@
         <button type="button" class="nav-btn" data-panel="panel-speech"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span><span class="nav-label">Speech</span></button>
         <button type="button" class="nav-btn" data-panel="panel-voice"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/></svg></span><span class="nav-label">Voice</span></button>
         <button type="button" class="nav-btn" data-panel="panel-games"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="7" width="19" height="10" rx="5"/><path d="M8 10.5v3M6.5 12h3"/><circle cx="15.5" cy="11" r="1" fill="currentColor" stroke="none"/><circle cx="17.5" cy="13.5" r="1" fill="currentColor" stroke="none"/></svg></span><span class="nav-label">Games</span></button>
+        <button type="button" class="nav-btn" data-panel="panel-vision"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-6.5 10-6.5S22 12 22 12s-3.5 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="2.8"/></svg></span><span class="nav-label">Vision</span></button>
         <button type="button" class="nav-btn" data-panel="panel-dance"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V6l10-2v11"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="15" r="2.5"/></svg></span><span class="nav-label">Music &amp; dance</span></button>
         <button type="button" class="nav-btn" data-panel="panel-chaos"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></svg></span><span class="nav-label">Chaos</span></button>
+        <button type="button" class="nav-btn" data-panel="panel-discord"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 13a8 8 0 0 1 16 0"/><rect x="2.5" y="13" width="4.5" height="7" rx="2"/><rect x="17" y="13" width="4.5" height="7" rx="2"/></svg></span><span class="nav-label">Discord</span></button>
+        <button type="button" class="nav-btn" data-panel="panel-tiktok"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V6l7-1.5v11"/><circle cx="6.5" cy="18" r="2.5"/><path d="M16 4.5c.6 2.2 2.1 3.6 4 4v4a8.6 8.6 0 0 1-4-1.3"/></svg></span><span class="nav-label">TikTok</span></button>
+        <button type="button" class="nav-btn" data-panel="panel-dj"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M10 8.5l6 3.5-6 3.5z" fill="currentColor" stroke="none"/></svg></span><span class="nav-label">DJ</span></button>
+        <button type="button" class="nav-btn" data-panel="panel-mc"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5 21 7.5v9l-9 5-9-5v-9z"/><path d="M12 12 21 7.5M12 12v9.5M12 12 3 7.5"/></svg></span><span class="nav-label">Minecraft</span></button>
+        <button type="button" class="nav-btn" data-panel="panel-vts"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="4"/><circle cx="9.5" cy="10" r="1.3" fill="currentColor" stroke="none"/><circle cx="14.5" cy="10" r="1.3" fill="currentColor" stroke="none"/><path d="M9 15c1.8 1.2 4.2 1.2 6 0"/></svg></span><span class="nav-label">VTube</span></button>
+        <button type="button" class="nav-btn" data-panel="panel-stats"><span class="nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></span><span class="nav-label">Stats</span></button>
       </nav>
       <div class="sidebar-pets">
         <p class="sidebar-pets-label">Your pets</p>
@@ -53,7 +62,7 @@
 
     <div class="main-column">
       <div class="titlebar">
-        <span class="titlebar-title">Virtual Pet Settings</span>
+        <span class="titlebar-title">Desktop Gremlin Settings</span>
         <div class="titlebar-btns">
           <button type="button" id="winMin" title="Minimize">–</button>
           <button type="button" id="winMax" title="Maximize">▢</button>
@@ -98,6 +107,24 @@
     </section>
 
     <section>
+      <h2>Pet performance</h2>
+      <p class="section-desc">Downscale the pet animations (GIF/PNG/WebP) to cut memory and CPU. Originals are kept — switching back to Original just re-links them. Uses ffmpeg.</p>
+      <label class="speech-field">
+        Sprite quality
+        <select id="petQuality">
+          <option value="original">Original (no change)</option>
+          <option value="medium">Medium (640px)</option>
+          <option value="low">Low (320px)</option>
+          <option value="verylow">Very low (160px)</option>
+        </select>
+      </label>
+      <button type="button" id="applyPetQuality" class="btn-secondary btn-small">Apply quality</button>
+      <p class="meter-hint" id="petQualityStatus" aria-live="polite"></p>
+      <button type="button" id="showDisplayInfo" class="btn-secondary btn-small">Show display info (for DPI bugs)</button>
+      <p class="meter-hint" id="displayInfoStatus" aria-live="polite"></p>
+    </section>
+
+    <section>
       <h2>Appearance</h2>
       <p class="section-desc">Color theme for this settings window.</p>
       <div class="theme-row" id="themeRow" role="group" aria-label="Color theme">
@@ -119,6 +146,23 @@
         Space between pets <span id="petCollisionGapVal">20</span>px
         <input type="range" id="petCollisionGap" min="0" max="80" step="4">
       </label>
+      <label class="check">
+        <input type="checkbox" id="multiMonitor">
+        Let pets roam ALL monitors (otherwise they stay on the main screen)
+      </label>
+      <label class="check">
+        <input type="checkbox" id="freePlacement">
+        Free placement (drop her anywhere, even high up — no floor snap)
+      </label>
+      <label class="check">
+        <input type="checkbox" id="showDebugBounds">
+        Show debug bounds (cyan border = pet window, red line = floor)
+      </label>
+      <label class="check">
+        <input type="checkbox" id="forceDpiScale">
+        Ignore Windows display scaling for the pet (fixes jitter/drift at 125%+ — restart required)
+      </label>
+
       <button type="button" id="testTag" class="btn-secondary btn-small">Test tag game (needs 2+ pets)</button>
       <p class="section-desc">Tagger counts 1-2-3, then the other pet runs away and the tagger chases.</p>
       <button type="button" id="testGift" class="btn-secondary btn-small">Test gift (needs 2+ pets)</button>
@@ -391,6 +435,18 @@
         <span class="gif-filename" id="nameGiftReceive">None (uses pet)</span>
       </div>
 
+      <div class="gif-slot" data-slot="thinking">
+        <div class="gif-slot-head">
+          <strong>Thinking</strong> <span class="gif-hint">hearing voice / processing task (optional)</span>
+        </div>
+        <div class="gif-slot-actions">
+          <button type="button" class="btn-pick-gif">Choose file</button>
+          <button type="button" class="btn-clear-gif">Clear</button>
+        </div>
+        <img class="gif-preview" id="previewThinking" alt="Thinking preview">
+        <span class="gif-filename" id="nameThinking">None (uses idle)</span>
+      </div>
+
       <label class="range-label">
         Attack animation length <span id="attackAnimMsVal">800</span>ms
         <input type="range" id="attackAnimMs" min="300" max="3000" step="100">
@@ -518,6 +574,39 @@
     </section>
 
     <section>
+      <h2>Grab, throw & wall slam</h2>
+      <p class="section-desc">While dragging her, fling her into a screen edge (wall or ceiling) to slam. Impact intensity scales with how far and how fast you moved the mouse — framed with an impact flash. She goes silent and sulks for a while.</p>
+      <label class="check">
+        <input type="checkbox" id="slamEnabled" checked>
+        Wall slam enabled
+      </label>
+      <label class="range-label">
+        Sensitivity <span id="slamSensitivityVal">1.0</span> (how easily a fling counts as a slam)
+        <input type="range" id="slamSensitivity" min="0.3" max="2.5" step="0.1">
+      </label>
+      <label class="range-label">
+        Max silence after slam <span id="slamSilenceSecVal">45</span> sec
+        <input type="range" id="slamSilenceSec" min="5" max="180" step="5">
+      </label>
+      <label class="check">
+        <input type="checkbox" id="slingEnabled" checked>
+        Throw physics: grab her, shake her around, and release while moving — she flies and bounces off walls and the floor like a ball. Off = she just gets placed where you drop her.
+      </label>
+      <label class="range-label">
+        Throw power <span id="slingForceVal">0.10</span>
+        <input type="range" id="slingForce" min="0.03" max="0.25" step="0.01">
+      </label>
+      <label class="range-label">
+        Bounciness <span id="slingBounceVal">70%</span> (how much energy she keeps when she hits walls/floor)
+        <input type="range" id="slingBounce" min="0.3" max="0.95" step="0.05">
+      </label>
+      <p class="section-desc">Up-down throws need Free placement (App tab). Floor-pinned pets skim and ricochet sideways. Fast wall hits count as wall slams.</p>
+      <label class="speech-field">
+        Slam impact lines (one per line — said the moment she hits the wall)
+        <textarea id="textSlam" rows="3" placeholder="Mmph!!&#10;Ow!!&#10;!!"></textarea>
+      </label>
+    </section>
+    <section>
       <h2>Random walk timer</h2>
       <p class="section-desc">Pet wanders randomly for this long, then rests.</p>
       <div class="duration-row">
@@ -560,6 +649,29 @@
         <span class="duration-sep">sec</span>
       </div>
     </section>
+
+    <section>
+      <h2>Goodnight schedule</h2>
+      <p class="section-desc">During sleep hours she stays asleep: no chatter, no play, no screen looks. Chatting, grabbing, or patting her snoozes it for 10 minutes.</p>
+      <label class="check">
+        <input type="checkbox" id="sleepScheduleEnabled">
+        Sleep on a schedule
+      </label>
+      <div class="duration-row">
+        <input type="time" id="sleepStart" value="23:00">
+        <span class="duration-sep">to</span>
+        <input type="time" id="sleepEnd" value="07:00">
+      </div>
+    </section>
+
+    <section>
+      <h2>Play mode</h2>
+      <p class="section-desc">She chases your cursor and pounces when she catches it. You can also toggle it by chatting "play mode on/off".</p>
+      <label class="check">
+        <input type="checkbox" id="playMode">
+        Chase my cursor
+      </label>
+    </section>
         </div>
 
         <div id="panel-speech" class="panel">
@@ -573,6 +685,10 @@
       <label class="speech-field">
         Proactive fallback lines (used when AI is down)
         <textarea id="textProactive" rows="3" placeholder="Hey! Just checking in~&#10;Whatcha up to?&#10;Don't forget to drink water~"></textarea>
+      </label>
+      <label class="speech-field">
+        Hear ack (said instantly when she hears her name)
+        <input type="text" id="textHearAck" maxlength="120" placeholder="yes? what is it?~">
       </label>
       <label class="speech-field">
         Grabbed (hold to drag)
@@ -654,14 +770,68 @@
       <label class="speech-field">
         Provider
         <select id="aiProvider">
-          <option value="custom">API (Gemini, Groq, OpenRouter…)</option>
+          <option value="custom">API / Local Server (OpenRouter, Venice, LM Studio, KoboldCPP, Gemini…)</option>
           <option value="ollama">Ollama (this PC, free forever)</option>
+        </select>
+      </label>
+      <label class="speech-field">
+        Quick-fill model preset (Uncensored &amp; standard models)
+        <select id="aiModelPreset">
+          <option value="">— Choose a model preset to auto-fill —</option>
+          <optgroup label="Uncensored — Local Ollama (Free, Private)">
+            <option value="ollama:lysithea-uncensored:latest">Lysithea Uncensored (lysithea-uncensored:latest)</option>
+            <option value="ollama:lysithea-uncensored-modified:latest">Lysithea Uncensored Modified (lysithea-uncensored-modified:latest)</option>
+            <option value="ollama:dolphin3:8b">Dolphin 3.0 (dolphin3:8b) — Uncensored</option>
+            <option value="ollama:huihui_ai/qwen2.5-coder-abliterate:7b">Qwen 2.5 Coder Abliterated 7B — Uncensored</option>
+            <option value="ollama:huihui_ai/qwen2.5-abliterated:7b">Qwen 2.5 Abliterated 7B — Uncensored</option>
+            <option value="ollama:dolphin-mistral:7b">Dolphin Mistral 7B — Uncensored</option>
+            <option value="ollama:hermes3:8b">Nous Hermes 3 8B — Uncensored / RP</option>
+            <option value="ollama:mannix/llama3.1-8b-abliterated">Llama 3.1 8B Abliterated — Uncensored</option>
+          </optgroup>
+          <optgroup label="Uncensored — Cloud API (OpenRouter / Venice)">
+            <option value="openrouter:cognitivecomputations/dolphin3.0-mistral-24b:free">OpenRouter Free — Dolphin 3.0 Mistral 24B (Uncensored)</option>
+            <option value="openrouter:cognitivecomputations/dolphin-mixtral-8x22b">OpenRouter — Dolphin Mixtral 8x22B (Uncensored)</option>
+            <option value="openrouter:nousresearch/hermes-3-llama-3.1-70b">OpenRouter — Nous Hermes 3 70B (Uncensored)</option>
+            <option value="openrouter:gryphe/mythomax-l2-13b">OpenRouter — MythoMax L2 13B (Uncensored RP)</option>
+            <option value="venice:venice-uncensored">Venice.ai — venice-uncensored</option>
+          </optgroup>
+          <optgroup label="Uncensored — Local Servers (No API Key Needed)">
+            <option value="lmstudio:local-model">LM Studio Server (http://127.0.0.1:1234/v1)</option>
+            <option value="koboldcpp:koboldcpp">KoboldCPP Server (http://127.0.0.1:5001/v1)</option>
+            <option value="llamacpp:local-model">llama.cpp / TextGen WebUI (http://127.0.0.1:8080/v1)</option>
+          </optgroup>
+          <optgroup label="Standard Models">
+            <option value="ollama:llama3.1:8b">Ollama — Llama 3.1 8B</option>
+            <option value="gemini:gemini-2.5-flash">Google Gemini — gemini-2.5-flash</option>
+          </optgroup>
         </select>
       </label>
       <label class="check">
         <input type="checkbox" id="aiFallback" checked>
         If the first choice fails, try the other automatically
       </label>
+      <label class="check">
+        <input type="checkbox" id="aiAgentEnabled" checked>
+        Pet agent: let her DO tasks (chat messages starting with &gt;)
+      </label>
+      <label class="check">
+        <input type="checkbox" id="aiAgentMode">
+        Agent mode: EVERY chat message is a task (no &gt; needed — "agent mode on" / "chat mode" also switch for this session)
+      </label>
+      <label class="speech-field">
+        Agent brain (separate model for tasks — blank = same as chat. e.g. qwen2.5-coder:7b for builds, dolphin3:8b for chat)
+        <input type="text" id="aiAgentModel" placeholder="qwen2.5-coder:7b">
+      </label>
+      
+      <label class="check">
+        <input type="checkbox" id="agentShell" checked>
+        Allow terminal commands (PowerShell — each one asks first, destructive ones are blocked outright)
+      </label>
+      <label class="speech-field">
+        Apps she may open (one per line)
+        <textarea id="agentApps" rows="3" placeholder="calc&#10;notepad&#10;mspaint&#10;spotify"></textarea>
+      </label>
+      <p class="section-desc">Task mode (&gt; build me a website) runs on your provider chain — best local with Ollama + qwen2.5:7b. Reads run free; created/edited/recycled files and every terminal command ask first. Shell runs PowerShell, non-interactive, 60s per command.</p>
       <label class="speech-field">
         Endpoint (OpenAI-compatible)
         <textarea id="aiEndpoint" rows="1" placeholder="https://generativelanguage.googleapis.com/v1beta/openai"></textarea>
@@ -679,8 +849,38 @@
         <input type="text" id="ownerName" maxlength="30" placeholder="Your name">
       </label>
       <label class="speech-field">
-        Her personality (optional — appended to her AI instructions)
+        Content &amp; restriction mode (per pet)
+        <select id="aiRestrictionMode">
+          <option value="family">Family-friendly (Safe / PG — clean language)</option>
+          <option value="mature">Mature / Edgy (Swearing, savage roasting &amp; adult humor OK)</option>
+          <option value="uncensored">Uncensored / Unrestricted (Default - no app-level filter; provider limits may still apply)</option>
+          <option value="model">Model default (No content instructions - the model/provider decides)</option>
+        </select>
+      </label>
+      <label class="speech-field">
+        Personality archetype preset
+        <select id="aiPersonalityPreset">
+          <option value="custom">Custom (write your own below)</option>
+          <option value="gremlin">Cheeky Desktop Gremlin (Playful, bratty, teasing)</option>
+          <option value="tsundere">Bratty Tsundere (Acts annoyed, secretly cares)</option>
+          <option value="savage">Savage Roast Gremlin (Foul-mouthed, ruthless banter, swears freely)</option>
+          <option value="chaos">Unhinged Chaos Gremlin (Uncensored, feral, zero filter)</option>
+          <option value="flirty">Flirty &amp; Teasing Companion (Bold, affectionate, unfiltered charm)</option>
+          <option value="kuudere">Deadpan Kuudere (Cool, dry wit, blunt &amp; calm)</option>
+          <option value="maid">Loyal Devoted Companion (Sweet, attentive, calls you Master/Boss)</option>
+        </select>
+      </label>
+      <label class="speech-field">
+        Her personality (highest priority — overrides default vibe &amp; tone)
         <textarea id="aiPersonality" rows="3" placeholder="Cheerful little sister who loves snacks and calls me Boss"></textarea>
+      </label>
+      <label class="speech-field">
+        Restrictions &amp; boundaries (hard rules she must NEVER break or topics/behaviors to avoid/enforce)
+        <textarea id="aiRestrictions" rows="3" placeholder="e.g. Never apologize or break character. Never lecture me or mention being an AI. No emojis. Keep replies under 2 sentences."></textarea>
+      </label>
+      <label class="check">
+        <input type="checkbox" id="aiAllowRoleplay">
+        Allow <em>*roleplay actions*</em> in asterisks (e.g. *smirks*, *pokes your cursor* — automatically enabled in Uncensored mode)
       </label>
       <label class="speech-field" id="ollamaModelRow">
         Ollama model (needs <span>Ollama</span> installed + pulled, e.g. <span>ollama pull llama3.1:8b</span>)
@@ -723,7 +923,76 @@
     </section>
 
     <section>
-      <h2>Voice (VOICEVOX)</h2>
+      <h2>Text bleeps & animation</h2>
+      <p class="section-desc">Undertale-style bleeps + visual-novel text effects for lines with no voice. Preview it live on your pet.</p>
+      <label class="check">
+        <input type="checkbox" id="textBleepsEnabled">
+        Text bleeps when no voice
+      </label>
+      <label class="range-label">
+        Bleep volume <span id="textBleepsVolumeVal">70</span>
+        <input type="range" id="textBleepsVolume" min="0" max="100" step="1">
+      </label>
+      <label class="check">
+        <input type="checkbox" id="textTypewriterEnabled">
+        Typewriter reveal (letter by letter)
+      </label>
+      <label class="speech-field">
+        Text animation
+        <select id="textAnim">
+          <option value="typewriter">Typewriter (plain)</option>
+          <option value="pop">Pop (letters spring in)</option>
+          <option value="fade">Fade (letters fade in)</option>
+          <option value="wave">Wave (letters ripple)</option>
+          <option value="rainbow">Rainbow (wave + colors)</option>
+          <option value="off">Off (instant bubbles)</option>
+        </select>
+      </label>
+      <button type="button" id="previewTextAnim" class="btn-secondary btn-small">Preview on pet</button>
+    </section>
+
+    <section>
+      <h2>Hear you (mic)</h2>
+      <p class="section-desc">Listens on YOUR mic only and answers when you say her name, e.g. "KURIZU, what time is it?" Speech is transcribed with your AI key (Google) and never stored. She stays deaf while her own voice is playing so she can't hear herself.</p>
+      <label class="check">
+        <input type="checkbox" id="voiceHearEnabled">
+        Listen for my voice
+      </label>
+      <label class="speech-field">
+        Microphone
+        <select id="hearMicDeviceId"></select>
+      </label>
+      <div class="prank-test-row">
+        <button type="button" id="hearMicRefresh" class="btn-secondary btn-small">Refresh mics</button>
+        <button type="button" id="testHearMic" class="btn-secondary btn-small">Test mic (4s)</button>
+      </div>
+      <div class="hear-meter"><i id="hearMeterFill"></i></div>
+      <p class="meter-hint" id="hearMicLabel"></p>
+      <p class="meter-hint" id="hearTestStatus" aria-live="polite"></p>
+      <label class="speech-field">
+        Transcribe model
+        <input type="text" id="voiceHearModel" placeholder="gemini-2.5-flash / Xenova/whisper-tiny.en">
+      </label>
+      <label class="speech-field">
+        Hear provider
+        <select id="voiceHearProvider">
+          <option value="gemini">Gemini (online, uses AI key)</option>
+          <option value="groq">Groq Whisper (online, free key)</option>
+          <option value="local">Local Whisper (offline, ~40MB once)</option>
+        </select>
+      </label>
+      <label class="speech-field">
+        Provider key (Groq only — Gemini uses your AI key)
+        <input type="password" id="voiceHearKey" placeholder="gsk_...">
+      </label>
+      <label class="speech-field">
+        Also answer to (comma-separated — STT mangles names, e.g. Corisoo, Kurisu)
+        <input type="text" id="voiceWakeWords" placeholder="Corisoo, Kurisu">
+      </label>
+    </section>
+
+    <section>
+      <h2>Voice</h2>
       <p class="section-desc">Speak bubbles aloud. Either point at your VOICEVOX app, or download the built-in voice (Zundamon pack, ~180MB one-time) — no separate app needed. Note: VOICEVOX voices speak Japanese, so English lines sound charmingly robotic. Voice replaces the blip sound for spoken lines.</p>
       <label class="check">
         <input type="checkbox" id="voiceVoxEnabled">
@@ -734,6 +1003,8 @@
         <select id="voiceVoxBackend">
           <option value="external">VOICEVOX app (external)</option>
           <option value="builtin">Built-in voice (no extra app)</option>
+          <option value="edge">Edge TTS — online, keyless, anime-cute voices</option>
+          <option value="kokoro">Kokoro — offline, ~90MB model on first use</option>
         </select>
       </label>
       <label class="speech-field">
@@ -885,6 +1156,129 @@
 
         </div>
 
+        <div id="panel-vision" class="panel">
+    <section>
+      <h2>Screen vision</h2>
+      <p class="section-desc">She actually looks at your screen and reacts to what she sees. Local Ollama vision is private and free (uses ~5GB VRAM per look, unloaded right after); cloud uses your API key.</p>
+      <label class="speech-field">
+        Screen vision
+        <select id="visionMode">
+          <option value="off">Off</option>
+          <option value="local">Local (Ollama vision, private)</option>
+          <option value="cloud">Cloud (uses your API key)</option>
+        </select>
+      </label>
+      <label class="speech-field">
+        Quick-fill vision model preset (Anti-freeze &amp; high-detail options)
+        <select id="visionModelPreset">
+          <option value="">— Choose a vision model preset —</option>
+          <optgroup label="Local Ollama — Fast / Anti-Freeze (Recommended)">
+            <option value="local:qwen2.5vl:3b">qwen2.5vl:3b (~2.8GB VRAM — Fast, reads UI &amp; text well)</option>
+            <option value="local:moondream:latest">moondream:latest (~1.7GB VRAM — Ultra-lightweight, zero lag)</option>
+            <option value="local:llava-phi3:latest">llava-phi3:latest (~2.9GB VRAM — Lightweight local vision)</option>
+          </optgroup>
+          <optgroup label="Local Ollama — Heavy / High-VRAM (12GB+ VRAM)">
+            <option value="local:qwen3-vl:8b-instruct">qwen3-vl:8b-instruct (~6.0GB VRAM — High detail)</option>
+            <option value="local:minicpm-v:8b">minicpm-v:8b (~5.5GB VRAM — Sharp OCR &amp; detail)</option>
+            <option value="local:qwen2.5vl:7b">qwen2.5vl:7b (~6.0GB VRAM — Heavy, may stutter on 8GB GPUs)</option>
+          </optgroup>
+          <optgroup label="Cloud Vision (Zero PC / GPU Load)">
+            <option value="cloud:gemini-2.5-flash">Google Gemini — gemini-2.5-flash</option>
+            <option value="openrouter:qwen/qwen-2.5-vl-72b-instruct:free">OpenRouter Free — Qwen 2.5 VL 72B</option>
+            <option value="openrouter:google/gemma-3-27b-it:free">OpenRouter Free — Gemma 3 27B Vision</option>
+          </optgroup>
+        </select>
+      </label>
+      <label class="check">
+        <input type="checkbox" id="visionLowVram" checked>
+        Low-VRAM / Anti-freeze mode (smaller GPU batches, 28px-aligned captures &amp; skips 7B+ auto-looks mid-game so Windows never stutters)
+      </label>
+      <label class="speech-field">
+        Local vision model (pull with <span>ollama pull qwen2.5vl:3b</span> or <span>ollama pull moondream</span>)
+        <input type="text" id="visionLocalModel" placeholder="qwen2.5vl:3b">
+      </label>
+      <label class="speech-field">
+        Cloud vision model (blank = your chat model if it supports images)
+        <input type="text" id="visionCloudModel" placeholder="qwen/qwen-2.5-vl-7b-instruct">
+      </label>
+      <label class="speech-field">
+        Vision quality (Sharp = more readable text, slower & heavier)
+        <select id="visionQuality">
+          <option value="fast">Fast (1024px)</option>
+          <option value="balanced">Balanced (1400px)</option>
+          <option value="sharp">Sharp (1800px)</option>
+        </select>
+      </label>
+      <label class="check">
+        <input type="checkbox" id="visionCrop" checked>
+        Crop to the active window (less clutter, clearer text)
+      </label>
+      <label class="check">
+        <input type="checkbox" id="visionGameLook" checked>
+        React during games too (periodic peeks while a game is active - hype-companion reactions; cloud vision recommended, local uses ~5GB VRAM per look)
+      </label>
+      <label class="range-label">
+        Game look every <span id="visionGameIntervalSecVal">60</span> sec
+        <input type="range" id="visionGameIntervalSec" min="30" max="600" step="15">
+      </label>
+      <label class="speech-field">
+        Cloud vision endpoint (its own API — separate from your chat API)
+        <input type="text" id="visionEndpoint" placeholder="https://generativelanguage.googleapis.com/v1beta/openai">
+      </label>
+      <label class="speech-field">
+        Cloud vision API key (blank = reuse your chat API key)
+        <input type="password" id="visionKey" placeholder="paste your vision API key">
+      </label>
+      <label class="range-label">
+        Contrast boost <span id="visionContrastVal">25</span>%
+        <input type="range" id="visionContrast" min="0" max="80" step="5">
+      </label>
+      <label class="range-label">
+        Look cooldown <span id="visionCooldownSecVal">45</span> sec
+        <input type="range" id="visionCooldownSec" min="15" max="300" step="15">
+      </label>
+      <button type="button" id="testVision" class="btn-secondary btn-small">Test vision (look now)</button>
+      <p class="meter-hint" id="visionStatus" aria-live="polite"></p>
+
+      <!-- Live Viewfinder & Real-Time Diagnostic Vision Logs -->
+      <div class="vision-diagnostics-card" style="margin-top: 18px; background: rgba(0, 0, 0, 0.25); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 12px; padding: 14px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <h3 style="margin: 0; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; color: #fff;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3.5-6.5 10-6.5S22 12 22 12s-3.5 6.5-10 6.5S2 12 2 12z"/><circle cx="12" cy="12" r="2.8"/></svg>
+            Pet Viewfinder &amp; Live Diagnostic Logs
+          </h3>
+          <div style="display: flex; gap: 8px;">
+            <button type="button" id="visionScanNowBtn" class="btn-primary btn-small" style="font-size: 12px; padding: 4px 10px;">📸 Scan Screen Now</button>
+            <button type="button" id="clearVisionLogsBtn" class="btn-secondary btn-small" style="font-size: 12px; padding: 4px 10px;">Clear Logs</button>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 260px 1fr; gap: 12px;">
+          <!-- Viewfinder Preview -->
+          <div style="display: flex; flex-direction: column; gap: 6px;">
+            <div style="font-size: 11px; opacity: 0.7; font-weight: 600; text-transform: uppercase; color: #bbb;">Captured Viewfinder</div>
+            <div id="visionScreenshotContainer" style="position: relative; width: 100%; height: 165px; background: #08090c; border-radius: 8px; overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.1); display: flex; align-items: center; justify-content: center;">
+              <img id="visionLastScreenshot" style="width: 100%; height: 100%; object-fit: contain; display: none;" alt="Pet Viewfinder Preview" />
+              <div id="visionScreenshotPlaceholder" style="text-align: center; color: rgba(255, 255, 255, 0.4); font-size: 11px; padding: 10px; line-height: 1.4;">
+                No screenshot yet.<br>Click "Scan Screen Now" or wait for auto-look.
+              </div>
+              <span id="visionScreenshotBadge" style="position: absolute; bottom: 6px; right: 6px; background: rgba(0,0,0,0.75); color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 4px; display: none; font-family: monospace;"></span>
+            </div>
+          </div>
+
+          <!-- Real-Time Log Console -->
+          <div style="display: flex; flex-direction: column; gap: 6px;">
+            <div style="font-size: 11px; opacity: 0.7; font-weight: 600; text-transform: uppercase; color: #bbb;">Live Vision Diagnostic Logs</div>
+            <div id="visionLogConsole" style="height: 165px; overflow-y: auto; background: #08090c; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; padding: 8px 10px; font-family: 'Consolas', 'Fira Code', monospace; font-size: 11px; line-height: 1.45; color: #abb2bf;">
+              <div style="color: #666;">[System] Vision diagnostics active. Ready for screen scan...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+        </div>
+
         <div id="panel-dance" class="panel">
     <section class="music-section">
       <h2>Music dance</h2>
@@ -915,7 +1309,7 @@
         <div id="panel-chaos" class="panel">
     <section>
       <h2>Controls</h2>
-      <p class="section-desc">Hold the chosen mouse button on the pet to grab and drag. Short right-click still opens the pet menu. Double-click (left) still opens settings.</p>
+      <p class="section-desc">Hold the chosen mouse button on the pet to grab and drag — or just drag her (works with trackpad tap-and-drag). Short right-click still opens the pet menu. Double-click (left) still opens settings.</p>
       <label>
         Grab &amp; drag
         <select id="grabButton">
@@ -944,7 +1338,7 @@
         <input type="range" id="chaosCloseChance" min="0.02" max="0.5" step="0.02">
       </label>
       <button type="button" id="testChaosClose" class="btn-chaos-test">Test close random app</button>
-      <p class="chaos-hint">Test closes one random window (not Virtual Pet). Save unsaved work first!</p>
+      <p class="chaos-hint">Test closes one random window (not Desktop Gremlin). Save unsaved work first!</p>
     </section>
     <section class="chaos-section">
       <h2>Prank mode 😈</h2>
@@ -1037,12 +1431,265 @@
       <p class="meter-hint" id="prankStatus" aria-live="polite"></p>
     </section>
         </div>
+
+        <div id="panel-discord" class="panel">
+    <section>
+      <h2>Discord bot</h2>
+      <p class="section-desc">Put her on Discord: DMs and @mentions get answered with her personality (AI if enabled, offline brain otherwise). Needs the <strong>Message Content</strong> intent switched on at <span>discord.com/developers/applications</span> → Bot. Give her <strong>Kick Members + Moderate Members</strong> if you want teeth: she auto-warns then timeouts people rude at her (60s, then 10min), and your Owner ID unlocks <span>!kick / !timeout / !untimeout</span>. Token stays on this PC and never ships in builds.</p>
+      <label class="check">
+        <input type="checkbox" id="discordEnabled">
+        Run Discord bot
+      </label>
+      <label class="speech-field">
+        Bot token (stored only on this PC)
+        <input type="password" id="discordToken" autocomplete="off" placeholder="Paste bot token here">
+      </label>
+      <label class="speech-field">
+        Only in channel ID (optional — blank = DMs + any mentioned channel)
+        <input type="text" id="discordChannelId" placeholder="123456789012345678">
+      </label>
+      <label class="speech-field">
+        Owner user ID (only you can use !kick / !timeout — right-click yourself in Discord → Copy User ID; needs Developer Mode)
+        <input type="text" id="discordOwnerId" placeholder="123456789012345678">
+      </label>
+      <button type="button" id="testDiscord" class="btn-secondary btn-small">Test connection</button>
+      <p class="meter-hint" id="discordStatus" aria-live="polite"></p>
+    </section>
+
+    <section>
+      <h2>Music sources</h2>
+      <p class="section-desc">Spotify playlists resolve to tracks here (free dev app at developer.spotify.com). YouTube cookie is the escape hatch if streams get bot-checked (DevTools → youtube.com → Application → Cookies, paste the whole string).</p>
+      <label class="speech-field">
+        Spotify Client ID
+        <input type="text" id="spotifyClientId" autocomplete="off" placeholder="Paste client ID here">
+      </label>
+      <label class="speech-field">
+        Spotify Client Secret (stored only on this PC)
+        <input type="password" id="spotifyClientSecret" autocomplete="off" placeholder="Paste client secret here">
+      </label>
+      <label class="speech-field">
+        YouTube cookie (optional, stored only on this PC)
+        <input type="password" id="youtubeCookie" autocomplete="off" placeholder="Paste cookie string here">
+      </label>
+    </section>
+
+    <section>
+      <h2>Voice music</h2>
+      <p class="section-desc">She DJs voice channels: <strong>!join</strong> (while you're inside one), <strong>!play &lt;song&gt;</strong>, <strong>!spotify &lt;playlist&gt;</strong>, <strong>!skip</strong>, <strong>!pause</strong>, <strong>!resume</strong>, <strong>!loop</strong> (off → track → queue), <strong>!queue</strong>, <strong>!leave</strong>. Needs ffmpeg on PATH and a voice channel to join. YouTube sourcing can be flaky — direct links work best.</p>
+    </section>
+        </div>
+
+        <div id="panel-vts" class="panel">
+    <section>
+      <h2>VTube Studio</h2>
+      <p class="section-desc">Control a Live2D model in VTube Studio: trigger hotkeys when she talks / wins / dies / dances / gets grabbed, and lip-sync her voice. In VTS: Settings → API → turn on <strong>Allow Plugin API access</strong>. First Connect shows an approval popup inside VTS.</p>
+      <label class="check">
+        <input type="checkbox" id="vtsEnabled">
+        Enable VTube Studio integration
+      </label>
+      <label class="speech-field">
+        API port
+        <input type="text" id="vtsPort" placeholder="8001">
+      </label>
+      <label class="check">
+        <input type="checkbox" id="vtsLipSync" checked>
+        Lip-sync her voice (drives MouthOpen while she speaks)
+      </label>
+      <label class="check">
+        <input type="checkbox" id="vtsMouseLook">
+        Head &amp; eyes follow your mouse (ParamAngle / ParamEyeBall)
+      </label>
+      <label class="check">
+        <input type="checkbox" id="vtsIdle" checked>
+        Idle life: sway on her own + wobble her head while talking
+      </label>
+      <label class="range-label">
+        Jam sensitivity <span id="vtsJamSensVal">1.0</span>
+        <input type="range" id="vtsJamSens" min="0.2" max="2.5" step="0.1">
+      </label>
+      <label class="range-label">
+        Jam smoothness <span id="vtsJamSmoothVal">0.12</span>
+        <input type="range" id="vtsJamSmooth" min="0.03" max="0.4" step="0.01">
+      </label>
+      <label class="check">
+        <input type="checkbox" id="vtsJamSmile" checked>
+        Smile while jamming
+      </label>
+      <label class="check">
+        <input type="checkbox" id="vtsHidePet" checked>
+        Hide the desktop pet while VTS is connected (VTS becomes her face)
+      </label>
+      <label class="check">
+        <input type="checkbox" id="vtsSubtitles" checked>
+        Show her lines as subtitles while the pet is hidden
+      </label>
+      <p class="section-desc">In VTS mode the sprite hides but she keeps thinking — idle talk, game reactions and vision still run and appear as captions at the bottom of the screen.</p>
+      <label class="speech-field">
+        Hotkey — she talks
+        <input type="text" id="vtsHotkeyTalk" placeholder="Hotkey name or ID (blank = off)">
+      </label>
+      <label class="speech-field">
+        Hotkey — victory
+        <input type="text" id="vtsHotkeyVictory" placeholder="Hotkey name or ID (blank = off)">
+      </label>
+      <label class="speech-field">
+        Hotkey — defeat
+        <input type="text" id="vtsHotkeyDefeat" placeholder="Hotkey name or ID (blank = off)">
+      </label>
+      <label class="speech-field">
+        Hotkey — dance
+        <input type="text" id="vtsHotkeyDance" placeholder="Hotkey name or ID (blank = off)">
+      </label>
+      <label class="speech-field">
+        Hotkey — grabbed
+        <input type="text" id="vtsHotkeyGrab" placeholder="Hotkey name or ID (blank = off)">
+      </label>
+      <div class="prank-test-row">
+        <button type="button" id="vtsConnectBtn" class="btn-secondary btn-small">Connect</button>
+        <button type="button" id="vtsDisconnectBtn" class="btn-secondary btn-small">Disconnect</button>
+        <button type="button" id="vtsResetBtn" class="btn-secondary btn-small">Reset token</button>
+        <button type="button" id="vtsListBtn" class="btn-secondary btn-small">List hotkeys</button>
+        <button type="button" id="vtsTestBtn" class="btn-secondary btn-small">Test talk hotkey</button>
+        <button type="button" id="vtsParamTestBtn" class="btn-secondary btn-small">Test head &amp; eyes</button>
+      </div>
+      <p class="meter-hint" id="vtsStatus" aria-live="polite">Not connected.</p>
+    </section>
+        </div>
+
+        <div id="panel-tiktok" class="panel">
+    <section>
+      <h2>TikTok LIVE chat</h2>
+      <p class="section-desc">She listens to your TikTok LIVE chat and answers out loud through her voice + speech bubble - your stream hears her. Read-only: TikTok has no API for third-party apps to type in chat, so she cannot post messages there herself. Uses an unofficial connector - if TikTok changes things, it may need a library update.</p>
+      <label class="check">
+        <input type="checkbox" id="tiktokEnabled">
+        Enable TikTok chat reactions (connects automatically on start)
+      </label>
+      <label class="speech-field">
+        TikTok username (the @handle of the account that goes LIVE)
+        <input type="text" id="tiktokUsername" placeholder="@yourname">
+      </label>
+      <label class="speech-field">
+        Sign API key (optional - only if TikTok rate-limits connections; get one free at eulerstream.com)
+        <input type="password" id="tiktokSignKey" placeholder="optional">
+      </label>
+      <button type="button" id="tiktokConnectBtn" class="btn-secondary btn-small">Connect</button>
+      <button type="button" id="tiktokDisconnectBtn" class="btn-secondary btn-small">Disconnect</button>
+      <p class="power-status" id="tiktokStatus">Off</p>
+      <label class="range-label">
+        Reply cooldown <span id="tiktokReplyCooldownSecVal">20</span> sec (she will not answer every single comment)
+        <input type="range" id="tiktokReplyCooldownSec" min="5" max="120" step="5">
+      </label>
+      <label class="check">
+        <input type="checkbox" id="tiktokReactGifts" checked>
+        Thank viewers for gifts
+      </label>
+      <h3 class="sub-heading">Test a comment</h3>
+      <label class="speech-field">
+        Fake viewer comment (she answers it like a real TikTok comment - no live needed)
+        <input type="text" id="tiktokTestComment" placeholder="omg she is so cute">
+      </label>
+      <button type="button" id="tiktokTestBtn" class="btn-secondary btn-small">Test comment</button>
+      <h3 class="sub-heading">Live log</h3>
+      <div id="tiktokLog" class="ocr-log"></div>
+    </section>
+        </div>
+
+        <div id="panel-dj" class="panel">
+    <section>
+      <h2>Now playing</h2>
+      <p class="section-desc" id="djStatus">Not connected — join a voice channel with !join.</p>
+      <div class="dj-now">
+        <img id="djArt" class="dj-art" alt="" hidden>
+        <div class="dj-now-meta">
+          <div class="dj-track" id="djTrack">—</div>
+          <canvas id="djViz" class="dj-viz" width="300" height="64"></canvas>
+        </div>
+      </div>
+      <div id="djQueue" class="ocr-log"></div>
+      <div class="prank-test-row">
+        <button type="button" id="djPlayPause" class="btn-secondary btn-small">Play / Pause</button>
+        <button type="button" id="djSkip" class="btn-secondary btn-small">Skip</button>
+        <button type="button" id="djStop" class="btn-secondary btn-small">Stop</button>
+        <button type="button" id="djLoop" class="btn-secondary btn-small">Loop: off</button>
+      </div>
+      <label class="range-label">
+        Music volume <span id="djVolumeVal">100</span>
+        <input type="range" id="djVolume" min="0" max="100" step="1">
+      </label>
+    </section>
+        </div>
+
+        <div id="panel-stats" class="panel">
+    <section>
+      <h2>App load</h2>
+      <p class="section-desc">Live CPU, RAM and GPU usage for the whole app (all windows + workers). GPU works on NVIDIA directly, or any card (AMD/Intel) via Windows counters. Graphs cover the last ~2 minutes.</p>
+      <p class="meter-hint" id="statCpuLine">CPU …</p>
+      <canvas id="statCpu" class="stat-graph" width="320" height="64"></canvas>
+      <p class="meter-hint" id="statMemLine">RAM …</p>
+      <canvas id="statMem" class="stat-graph" width="320" height="64"></canvas>
+      <p class="meter-hint" id="statGpuLine">GPU …</p>
+      <canvas id="statGpu" class="stat-graph" width="320" height="64"></canvas>
+    </section>
+        </div>
+        <div id="panel-mc" class="panel">
+    <section>
+      <h2>Minecraft bot</h2>
+      <p class="section-desc">She joins Java Edition as a real player: follows you, wanders nearby, looks around, wears armor she finds, sleeps at night, and answers chat with her personality. Orders: <strong>come / stay / follow &lt;name&gt; / jump / guard / get wood [n] / get food [n] / right click / left click / look here / look there / look at 123 65 456</strong>. <em>Right click</em> uses whatever she's holding or looking at (places a block, opens a chest, eats, uses an item); <em>left click</em> attacks whatever's in front of her (or swings at the block). She hits back whoever hits her (mobs, bosses, even players — hit for hit). LAN worlds (open to LAN) and offline-mode servers just need a name; online-mode servers need Microsoft login — first connect shows a code to enter at microsoft.com/link.</p>
+      <label class="speech-field">
+        Server address (LAN IP or server host)
+        <input type="text" id="mcHost" placeholder="127.0.0.1">
+        <small class="field-hint">Minecraft on <em>this</em> PC → use <strong>127.0.0.1</strong> (your LAN IP gets blocked by the Windows Firewall). Another PC → use that PC's LAN IP.</small>
+      </label>
+      <label class="speech-field">
+        Port (LAN screen shows it, e.g. 51234)
+        <input type="text" id="mcPort" placeholder="25565">
+      </label>
+      <label class="speech-field">
+        Bot name
+        <input type="text" id="mcUsername" placeholder="Pet">
+      </label>
+      <label class="speech-field">
+        Login
+        <select id="mcAuth">
+          <option value="offline">Offline (LAN / offline-mode servers)</option>
+          <option value="microsoft">Microsoft (online-mode servers)</option>
+        </select>
+      </label>
+      <label class="speech-field">
+        Follow player (blank = follows whoever talks to her first)
+        <input type="text" id="mcFollow" placeholder="YourIGN">
+      </label>
+      <label class="check">
+        <input type="checkbox" id="mcAutoReconnect" checked>
+        Auto-reconnect if kicked
+      </label>
+      <label class="check">
+        <input type="checkbox" id="mcSpeakChat" checked>
+        Say her Minecraft chat out loud (TTS)
+      </label>
+      <div class="prank-test-row">
+        <button type="button" id="mcConnect" class="btn-secondary btn-small">Connect</button>
+        <button type="button" id="mcDisconnect" class="btn-secondary btn-small">Disconnect</button>
+      </div>
+      <p class="meter-hint" id="mcStatus" aria-live="polite">Not connected.</p>
+    </section>
+
+    <section>
+      <h2>Bot log</h2>
+      <p class="section-desc">What she's thinking while playing — targets chosen, blocks mined, failures, modes. Use this to spot bugs.</p>
+      <div id="mcLog" class="ocr-log"></div>
+      <button type="button" id="mcLogClear" class="btn-secondary btn-small">Clear log</button>
+    </section>
+        </div>
       </div>
 
     <footer class="main-footer">
       <span class="made-by-footer">Made by Kurizu</span>
         <div class="main-footer-actions">
-          <button type="button" id="save" class="btn-primary">Save & apply</button>
+          <button type="button" id="quickVision" class="btn-quick off" title="Toggle screen vision">Vision</button>
+                    <button type="button" id="quickOcr" class="btn-quick off" title="Toggle screen watch (OCR)">Screen watch</button>
+                    <button type="button" id="quickVoice" class="btn-quick off" title="Toggle voice">Voice</button>
+                    <button type="button" id="save" class="btn-primary">Save & apply</button>
       </div>
     </footer>
     <p class="hint" id="status">Loading...</p>

@@ -61,6 +61,10 @@ function main() {
   const raw = JSON.parse(fs.readFileSync(devConfig, 'utf8'));
   const baked = JSON.parse(JSON.stringify(raw));
   baked.aiKey = '';
+  baked.discordToken = '';
+  baked.spotifyClientId = '';
+  baked.spotifyClientSecret = '';
+  baked.youtubeCookie = '';
   delete baked.prankPrevWallpaper;
   for (const pet of baked.pets || []) {
     delete pet.memory;

@@ -1,5 +1,5 @@
 @echo off
-title Build Virtual Pet.exe
+title Build Desktop Gremlin.exe
 cd /d "%~dp0"
 
 where node >nul 2>&1
@@ -13,19 +13,17 @@ echo Installing dependencies...
 call npm install
 if errorlevel 1 goto fail
 
-echo Building Virtual Pet.exe...
-call npm run build
+echo Building Desktop Gremlin Portable Exe...
+call npm run build:portable
 if errorlevel 1 goto fail
 
-set "EXE_DIST=build-output\Virtual Pet 1.60.0.exe"
-set "EXE_ROOT=Virtual Pet.exe"
+for %%f in ("build-output\Desktop Gremlin *Portable.exe") do set "EXE_DIST=%%f"
+if not defined EXE_DIST set "EXE_DIST=build-output\Desktop Gremlin 1.81.9 Portable.exe"
+set "EXE_ROOT=Desktop Gremlin.exe"
 
-if not exist "%EXE_DIST%" (
-  echo Expected file not found: %EXE_DIST%
-  goto fail
+if exist "%EXE_DIST%" (
+  copy /Y "%EXE_DIST%" "%EXE_ROOT%" >nul
 )
-
-copy /Y "%EXE_DIST%" "%EXE_ROOT%" >nul
 echo.
 echo Done!
 echo   %EXE_ROOT%  ^(main launcher — double-click this^)
