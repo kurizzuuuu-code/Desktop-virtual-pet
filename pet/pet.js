@@ -193,6 +193,23 @@ function afterVoiceQuiet(fn, timeoutMs = 8000) {
   tick();
 }
 
+function splitVoiceSentences(text) {
+  const s = String(text || '').trim();
+  if (!s) return [];
+  if (s.length < 48) return [s];
+  const raw = s.split(/(?<=[.!?…])\s+/).map((p) => p.trim()).filter(Boolean);
+  if (raw.length <= 1) return [s];
+  const out = [];
+  for (const part of raw) {
+    if (out.length && out[out.length - 1].length < 18) {
+      out[out.length - 1] += ' ' + part;
+    } else {
+      out.push(part);
+    }
+  }
+  return out.slice(0, 4);
+}
+
 function requestVoice(text, isChatter, isReaction) {
   if (!config.voiceVoxEnabled || Date.now() < voiceDeadUntil) return false;
   // The reactions toggle is specific, so it wins over the general idle-only
@@ -200,8 +217,8 @@ function requestVoice(text, isChatter, isReaction) {
   if (isReaction ? config.voiceVoxReactions === false : config.voiceVoxIdleOnly && !isChatter) return false;
   const clean = cleanVoiceText(text);
   if (!clean) return false;
-  if (voiceQueue.length > 2) return true;
-  voiceQueue.push(clean);
+  if (voiceQueue.length > 4) return true;
+  for (const part of splitVoiceSentences(clean)) voiceQueue.push(part);
   pumpVoiceQueue();
   return true;
 }
@@ -221,6 +238,11 @@ async function pumpVoiceQueue() {
   voicePlaying = true;
   const myGen = voiceGen;
   const text = voiceQueue.shift();
+  // Lookahead prefetch: synthesize the NEXT sentence in parallel while this one
+  // plays so multi-sentence TTS has zero gap between sentences!
+  if (voiceQueue.length && window.petAPI?.speakText) {
+    window.petAPI.speakText(voiceQueue[0], config.petId, { warm: true }).catch(() => {});
+  }
   try {
     const res = await window.petAPI.speakText(text, config.petId);
     if (myGen !== voiceGen) {
@@ -228,7 +250,15 @@ async function pumpVoiceQueue() {
       pumpVoiceQueue();
       return;
     }
-    if (res?.url) {
+    if (res?.playedOnDiscord) {
+      // Played directly in Discord voice channel — stay silent locally on the pet.
+      if (text === captionText && captionVoiceLine) {
+        captionVoiceLine = false;
+        try {
+          window.petAPI.reportSpeechEnd?.();
+        } catch (_) {}
+      }
+    } else if (res?.url) {
       await new Promise((resolve) => {
         voiceResolve = resolve;
         let lipTimer = null;
@@ -264,6 +294,7 @@ async function pumpVoiceQueue() {
         };
         try {
           const a = new Audio(res.url);
+          a.preload = 'auto';
           voiceAudioEl = a;
           a.onplaying = () => {
             started = true;
@@ -279,14 +310,16 @@ async function pumpVoiceQueue() {
               }
             } catch (_) {}
           };
-          try {
-            lipTimer = setInterval(() => {
-              try {
-                const v = 0.15 + 0.7 * Math.abs(Math.sin(Date.now() / 95));
-                window.petAPI.vtsParam?.({ id: 'MouthOpen', value: v });
-              } catch (_) {}
-            }, 90);
-          } catch (_) {}
+          if (config.vtsEnabled) {
+            try {
+              lipTimer = setInterval(() => {
+                try {
+                  const v = 0.15 + 0.7 * Math.abs(Math.sin(Date.now() / 95));
+                  window.petAPI.vtsParam?.({ id: 'MouthOpen', value: v });
+                } catch (_) {}
+              }, 90);
+            } catch (_) {}
+          }
           a.volume = Math.max(0, Math.min(1, (config.voiceVoxVolume ?? 100) / 100));
           a.onended = done;
           a.onerror = done;
@@ -355,7 +388,7 @@ function warmVoiceCache() {
     setTimeout(() => {
       try {
         for (const line of lines) {
-          window.petAPI.speakText(line, config.petId).catch(() => {});
+          window.petAPI.speakText(line, config.petId, { warm: true }).catch(() => {});
         }
       } catch (_) {}
     }, 8000);
@@ -4844,12 +4877,34 @@ function doPat() {
   showSpeech('♡ ' + pickSpeech('textPet', DEFAULT_SPEECH.textPet), 1500, { sound: 'pet', noInterrupt: true });
 }
 
+function applyPetWordFilter(text) {
+  let out = String(text || '');
+  if (!out || config.ttsFilterEnabled === false) return out;
+  const rawList = String(config.ttsFilteredWords || '').trim();
+  if (!rawList) return out;
+  const terms = rawList
+    .split(/[\r\n,]+/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .sort((a, b) => b.length - a.length);
+  for (const term of terms) {
+    try {
+      const esc = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const boundary = /^[a-z0-9]/i.test(term) && /[a-z0-9]$/i.test(term);
+      const re = new RegExp(boundary ? `\\b${esc}\\b` : esc, 'gi');
+      out = out.replace(re, 'filtered');
+    } catch (_) {}
+  }
+  return out;
+}
+
 function showSpeech(text, ms = 2000, opts = {}) {
   // Ambient lines (dance/pet/attack/walk) must never cut off a real
   // conversation: if she's mid-sentence, skip the new bubble+voice.
   if (opts.noInterrupt && speechEl.classList.contains('show')) return;
   // Slammed: she's sulking - nothing comes out unless forced (impact bark).
   if (!opts.force && Date.now() < shutUpUntil) return;
+  text = applyPetWordFilter(text);
   stopTypewriter();
   const fullHtml = renderSpeechHtml(text);
   const wantType = config.textTypewriterEnabled !== false && !opts.quiet;

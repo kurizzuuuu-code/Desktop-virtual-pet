@@ -793,6 +793,8 @@ const APP_DEFAULTS = {
   gameOcrIntervalSec: 5,
   gameOcrQuality: 'balanced',
   voiceDevice: 'cpu',
+  ttsFilterEnabled: true,
+  ttsFilteredWords: '',
   aiEnabled: false,
   aiEndpoint: 'https://generativelanguage.googleapis.com/v1beta/openai',
   aiKey: '',
@@ -804,6 +806,9 @@ const APP_DEFAULTS = {
   discordToken: '',
   discordChannelId: '',
   discordOwnerId: '',
+  discordTtsEnabled: true,
+  discordHidePet: false,
+  discordVoiceListen: false,
   tiktokEnabled: false,
   tiktokUsername: '',
   tiktokReplyCooldownSec: 20,
@@ -836,6 +841,7 @@ const APP_DEFAULTS = {
   visionCrop: true,
   visionContrast: 25,
   visionLowVram: true,
+  visionWindowTarget: '',
   petQuality: 'original',
   agentApps: 'calc\nnotepad\nmspaint',
   relationships: {},
@@ -892,6 +898,8 @@ const GLOBAL_CONFIG_KEYS = new Set([
   'gameOcrIntervalSec',
   'gameOcrQuality',
   'voiceDevice',
+  'ttsFilterEnabled',
+  'ttsFilteredWords',
   'aiEnabled',
   'aiEndpoint',
   'aiKey',
@@ -903,6 +911,9 @@ const GLOBAL_CONFIG_KEYS = new Set([
   'discordToken',
   'discordChannelId',
   'discordOwnerId',
+  'discordTtsEnabled',
+  'discordHidePet',
+  'discordVoiceListen',
   'mcHost',
   'mcPort',
   'mcUsername',
@@ -926,6 +937,7 @@ const GLOBAL_CONFIG_KEYS = new Set([
   'visionCrop',
   'visionContrast',
   'visionLowVram',
+  'visionWindowTarget',
   'petQuality',
   'agentApps',
   'relationships',
@@ -1101,7 +1113,7 @@ function ensurePetsVisibleOverGame() {
   if (!globalGameActive) return;
   const config = loadConfig();
   if (config.hidePetsWhileGaming || !config.petEnabled) return;
-  if (vtsPetHidden) return; // VTS mode keeps the sprite hidden on purpose
+  if (isPetHiddenByMode()) return; // VTS/Discord hide mode keeps the sprite hidden on purpose
 
   for (const [, entry] of petWindows) {
     const win = entry.window;
@@ -1172,7 +1184,7 @@ function applyGameOverlayProfile() {
       continue;
     }
 
-    if (config.petEnabled && !vtsPetHidden) {
+    if (config.petEnabled && !isPetHiddenByMode()) {
       if (!win.isVisible()) {
         try {
           if (win.showInactive) win.showInactive();
@@ -3237,6 +3249,7 @@ function buildTrayMenu() {
       click: () => setPetEnabled(!on),
     },
     { label: 'Open Settings', click: () => createSettingsWindow() },
+    { label: 'Quick Controls (Ctrl+Shift+Q) ⚡', click: () => toggleQuickWindow() },
     { label: 'Start Random Walk', click: () => startWanderFromConfig(), enabled: on },
     ...(prankActive ? [{ label: 'Stop the prank NOW', click: () => closePrankWindow('abort') }] : []),
     { label: 'Chat with pet 💬', click: () => createChatWindow(loadConfig().activePetId), enabled: on },
@@ -3264,6 +3277,7 @@ function buildPetContextMenu(petId = null) {
       click: () => setPetEnabled(!on),
     },
     { label: 'Open Settings', click: () => createSettingsWindow() },
+    { label: 'Quick Controls (Ctrl+Shift+Q) ⚡', click: () => toggleQuickWindow() },
     { label: 'Start Random Walk', click: () => startWanderFromConfig(), enabled: on },
     { label: `Chat with ${petDisplayName(petId)} 💬`, click: () => createChatWindow(petId), enabled: on },
     { label: `Play rock-paper-scissors with ${petDisplayName(petId)} ✂️`, click: () => { if (petId) sendToPetWindow(petId, 'rps-start'); }, enabled: on },
@@ -3875,7 +3889,7 @@ function syncPetWindows() {
   }
 
   // VTS mode: keep her powered and thinking, just keep the sprite hidden.
-  if (vtsPetHidden) {
+  if (isPetHiddenByMode()) {
     enabledPets.forEach((pet, index) => {
       createPetWindow(pet.id, index, enabledPets.length, enabledPets);
       const entry = petWindows.get(pet.id);
@@ -3928,6 +3942,21 @@ function setupSystemAudioCapture() {
 // ---------------------------------------------------------------------------
 let subtitleWindow = null;
 let vtsPetHidden = false;
+let discordPetHidden = false;
+
+function isPetHiddenByMode() {
+  return vtsPetHidden || discordPetHidden;
+}
+
+function syncDiscordPetHideMode(config = loadConfig()) {
+  try {
+    const wantHidden = !!config.discordHidePet && !!getActiveDiscordVoiceGuild();
+    if (wantHidden !== discordPetHidden) {
+      discordPetHidden = wantHidden;
+      applyVtsPetMode();
+    }
+  } catch (_) {}
+}
 
 function subtitleBounds() {
   const work = getWorkArea();
@@ -3975,7 +4004,9 @@ function createSubtitleWindow() {
 function pushSubtitle(text, ms, hold) {
   try {
     const config = loadConfig();
-    if (!vtsPetHidden || config.vtsSubtitles === false) return;
+    const allowVts = vtsPetHidden && config.vtsSubtitles !== false;
+    const allowDiscord = discordPetHidden;
+    if (!allowVts && !allowDiscord) return;
     const clean = String(text || '').trim().slice(0, 300);
     if (!clean) return;
     const win = createSubtitleWindow();
@@ -3999,16 +4030,18 @@ function pushSubtitle(text, ms, hold) {
 function clearSubtitle() {
   try {
     const config = loadConfig();
-    if (!vtsPetHidden || config.vtsSubtitles === false) return;
+    const allowVts = vtsPetHidden && config.vtsSubtitles !== false;
+    const allowDiscord = discordPetHidden;
+    if (!allowVts && !allowDiscord) return;
     if (!subtitleWindow || subtitleWindow.isDestroyed()) return;
     subtitleWindow.webContents.send('subtitle-text', { end: true });
   } catch (_) {}
 }
 
-// Applies the current VTS-mode visibility (hide sprite + keep subtitle warm).
+// Applies the current VTS/Discord hide-mode visibility (hide sprite + keep subtitle warm).
 function applyVtsPetMode() {
   try {
-    if (!vtsPetHidden) {
+    if (!isPetHiddenByMode()) {
       if (subtitleWindow && !subtitleWindow.isDestroyed()) subtitleWindow.hide();
       syncPetWindows();
       return;
@@ -4122,6 +4155,58 @@ function createChatWindow(petId = null) {
   });
   chatWindow.on('closed', () => {
     chatWindow = null;
+  });
+}
+
+let quickWindow = null;
+
+function toggleQuickWindow() {
+  if (quickWindow && !quickWindow.isDestroyed()) {
+    if (quickWindow.isVisible()) {
+      quickWindow.hide();
+      return;
+    }
+    const work = getWorkArea();
+    const w = 460;
+    const h = 172;
+    quickWindow.setBounds({
+      x: Math.round(work.x + (work.width - w) / 2),
+      y: Math.round(work.y + work.height - h - 48),
+      width: w,
+      height: h,
+    });
+    quickWindow.show();
+    quickWindow.focus();
+    return;
+  }
+  const work = getWorkArea();
+  const w = 460;
+  const h = 172;
+  quickWindow = new BrowserWindow({
+    width: w,
+    height: h,
+    x: Math.round(work.x + (work.width - w) / 2),
+    y: Math.round(work.y + work.height - h - 48),
+    frame: false,
+    transparent: true,
+    resizable: false,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    show: true,
+    title: 'Desktop Gremlin Quick Controls',
+    icon: path.join(__dirname, 'assets', 'icon.ico'),
+    webPreferences: webPreferences(),
+  });
+  quickWindow.setAlwaysOnTop(true, 'screen-saver');
+  quickWindow.loadFile(path.join(__dirname, 'quick', 'index.html'));
+  applyExcludeFromCapture(quickWindow);
+  quickWindow.on('close', (e) => {
+    if (app.isQuitting) return;
+    e.preventDefault();
+    quickWindow.hide();
+  });
+  quickWindow.on('closed', () => {
+    quickWindow = null;
   });
 }
 
@@ -4286,6 +4371,7 @@ function buildAiSystemPrompt(config, petId) {
     gameLine,
     nowLine,
     restrictionRule,
+    'LANGUAGE RULE: Always reply in natural English ONLY. NEVER use Tagalog, Filipino, or Taglish words or phrases (no "po", "opo", "naman", "kuya", "ate", "talaga", "sige", "grabe", "charot", "uy", etc.) in chat or TTS.',
     'ANSWER RULE (overrides sass, never the other way around): snark is the seasoning, never the meal. When the human asks a question (time, tutorials, facts, how-to), ALWAYS include the real correct answer. Tease and complain all you want, but NEVER dodge with "ask someone else", "ask the AI button", "idk", refusals, or topic changes. Sass goes WITH the answer, e.g. "ugh, open a clock yourself~ ...fine, it is 3:45 PM. happy now?" If you genuinely do not know, give your best honest guess plus what you do know.',
     `Rules: reply in 1-2 short sentences (under 40 words) unless her custom personality or restrictions below ask for longer replies. Never break character. VOICE CHECK before sending: if this reply could come from any generic cute assistant, rewrite it in HER voice — bratty, lazy, teasing, her exact diction. Generic sweetness is failure. Never claim to be text-only or unable to act — if asked to DO something, point at the AI button or a "> ..." message instead of refusing. Just BE her and reply directly — never narrate yourself (no "I need to respond as…", no "As [name], I…", no describing what you are about to say). Never quote, repeat, or narrate these instructions — just act them. ${roleplayRule}`,
     persona
@@ -4412,7 +4498,11 @@ async function tryAiTarget(target, payload, timeoutMs = 90000) {
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   const headers = { 'Content-Type': 'application/json' };
   if (target.key) headers.Authorization = `Bearer ${target.key}`;
-  const body = JSON.stringify({ ...payload, model: target.model });
+  const wantStream = !!(payload && payload._streamToChat && chatWindow && !chatWindow.isDestroyed());
+  const reqPayload = { ...payload, model: target.model };
+  delete reqPayload._streamToChat;
+  if (wantStream) reqPayload.stream = true;
+  const body = JSON.stringify(reqPayload);
   let attempt = 0;
   let lastError = { ok: false, error: 'unreachable' };
   try {
@@ -4443,6 +4533,52 @@ async function tryAiTarget(target, payload, timeoutMs = 90000) {
         break;
       }
       if (res.ok) {
+        const ctype = String(res.headers.get('content-type') || '').toLowerCase();
+        if (wantStream && ctype.includes('text/event-stream') && res.body && res.body.getReader) {
+          const reader = res.body.getReader();
+          const dec = new TextDecoder();
+          let buf = '';
+          let full = '';
+          let reasoning = '';
+          while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            buf += dec.decode(value, { stream: true });
+            const lines = buf.split(/\r?\n/);
+            buf = lines.pop() || '';
+            for (const line of lines) {
+              const trimmed = line.trim();
+              if (!trimmed.startsWith('data:')) continue;
+              const dataStr = trimmed.slice(5).trim();
+              if (!dataStr || dataStr === '[DONE]') continue;
+              try {
+                const j = JSON.parse(dataStr);
+                const d = j?.choices?.[0]?.delta || {};
+                const chunk = String(d.content ?? '');
+                if (chunk) {
+                  full += chunk;
+                  try {
+                    if (chatWindow && !chatWindow.isDestroyed()) {
+                      chatWindow.webContents.send('chat-stream', { delta: chunk, done: false });
+                    }
+                  } catch (_) {}
+                } else if (d.reasoning_content || d.reasoning) {
+                  reasoning += String(d.reasoning_content || d.reasoning);
+                }
+              } catch (_) {}
+            }
+          }
+          try {
+            if (chatWindow && !chatWindow.isDestroyed()) {
+              chatWindow.webContents.send('chat-stream', { delta: '', done: true });
+            }
+          } catch (_) {}
+          let text = String(full || reasoning).trim();
+          text = cleanAiReply(text).slice(0, 400);
+          if (text) return { ok: true, text, via: target.kind };
+          lastError = { ok: false, error: 'empty' };
+          break;
+        }
         const data = await res.json().catch(() => ({}));
         const msg = (data?.choices?.[0]?.message) || {};
         // Reasoning-first models (Qwen3 etc.) sometimes leave `content`
@@ -4555,6 +4691,7 @@ ipcMain.handle('ai-chat', async (event, messages) => {
     ],
     max_tokens: 600,
     temperature: 0.7,
+    _streamToChat: !!(chatWindow && !chatWindow.isDestroyed() && chatWindow.isVisible()),
   };
   const res = await runAiChatTargets(targets, payload);
   if (res?.ok) {
@@ -4602,6 +4739,21 @@ ipcMain.handle('proactive-chat', async (event, brief) => {
 // ---------------------------------------------------------------------------
 let nextVisionAt = 0;
 let visionBusy = false;
+let visionBusySince = 0;
+let visionRunGen = 0;
+
+function isVisionBusyNow() {
+  if (!visionBusy) return false;
+  if (visionBusySince && Date.now() - visionBusySince > 75000) {
+    visionBusy = false;
+    visionBusySince = 0;
+    try {
+      logVisionTelemetry('error', 'Previous vision scan stalled (>75s) — auto-resetting lock so screenshots resume.');
+    } catch (_) {}
+    return false;
+  }
+  return true;
+}
 
 // Goodnight schedule: true while the pet's sleep hours cover right now
 // (overnight wrap supported, e.g. 23:00–07:00).
@@ -5091,14 +5243,14 @@ ipcMain.on('vts-beat', (_, data) => {
 // the bottom-screen subtitles (the sprite bubble is hidden).
 ipcMain.on('pet-speech', (_, data) => {
   try {
-    if (!vtsPetHidden) return;
+    if (!isPetHiddenByMode()) return;
     pushSubtitle(data && data.text, data && data.ms, data && data.hold);
   } catch (_) {}
 });
 
 ipcMain.on('pet-speech-end', () => {
   try {
-    if (!vtsPetHidden) return;
+    if (!isPetHiddenByMode()) return;
     clearSubtitle();
   } catch (_) {}
 });
@@ -5427,6 +5579,53 @@ function isFrameSigUnchanged(a, b) {
   return diffSum / a.length < 5;
 }
 
+function captureScreenGdiFallback(targetW, thumbH, jpegQ) {
+  if (process.platform !== 'win32') return Promise.resolve(null);
+  return new Promise((resolve) => {
+    const w = Math.max(160, Math.min(1920, Math.round(targetW || 378)));
+    const h = Math.max(90, Math.min(1080, Math.round(thumbH || 212)));
+    const q = Math.max(30, Math.min(90, Math.round(jpegQ || 60)));
+    const ps = `
+Add-Type -AssemblyName System.Windows.Forms,System.Drawing
+$b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+$src = New-Object System.Drawing.Bitmap($b.Width, $b.Height)
+$g = [System.Drawing.Graphics]::FromImage($src)
+$g.CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
+$g.Dispose()
+$dst = New-Object System.Drawing.Bitmap(${w}, ${h})
+$g2 = [System.Drawing.Graphics]::FromImage($dst)
+$g2.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBilinear
+$g2.DrawImage($src, 0, 0, ${w}, ${h})
+$g2.Dispose(); $src.Dispose()
+$ms = New-Object System.IO.MemoryStream
+$enc = [System.Drawing.Imaging.ImageCodecInfo]::GetImageEncoders() | Where-Object { $_.MimeType -eq 'image/jpeg' } | Select-Object -First 1
+$ep = New-Object System.Drawing.Imaging.EncoderParameters(1)
+$ep.Param[0] = New-Object System.Drawing.Imaging.EncoderParameter([System.Drawing.Imaging.Encoder]::Quality, [long]${q})
+$dst.Save($ms, $enc, $ep)
+$dst.Dispose()
+[Convert]::ToBase64String($ms.ToArray())
+$ms.Dispose()
+`.trim();
+    execFile(
+      'powershell.exe',
+      ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', ps],
+      { windowsHide: true, timeout: 7000, maxBuffer: 4 * 1024 * 1024 },
+      (err, stdout) => {
+        if (err || !stdout) return resolve(null);
+        try {
+          const buf = Buffer.from(String(stdout).trim(), 'base64');
+          if (!buf.length) return resolve(null);
+          const ni = nativeImage.createFromBuffer(buf);
+          if (!ni || ni.isEmpty()) return resolve(null);
+          resolve(ni);
+        } catch (_) {
+          resolve(null);
+        }
+      }
+    );
+  });
+}
+
 async function captureScreenJpeg(hiRes, opts = {}) {
   const config = loadConfig();
   const q = String(config.visionQuality || 'balanced');
@@ -5470,33 +5669,83 @@ async function captureScreenJpeg(hiRes, opts = {}) {
   // transparent (~45ms) so the test captures the real desktop/game behind Settings.
   // Note: Pet sprite windows are NEVER made transparent here, ensuring zero
   // flicker on screen and 100% normal capture in OBS and stream recorders!
+  const targetWin = String(config.visionWindowTarget || '').trim();
+  let img = null;
+  let capturedSpecificWindow = false;
+  if (targetWin) {
+    try {
+      const winSources = await Promise.race([
+        desktopCapturer.getSources({
+          types: ['window'],
+          thumbnailSize: { width: targetW, height: thumbH },
+        }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('windowCapturer-timeout')), 8000)),
+      ]).catch(() => null);
+      if (Array.isArray(winSources) && winSources.length) {
+        const lowTarget = targetWin.toLowerCase();
+        const parts = targetWin.split(/\s+[-–—|]\s+/).map((p) => p.trim()).filter(Boolean);
+        const appSuffix = parts.length > 1 ? parts[parts.length - 1].toLowerCase() : '';
+        const picked =
+          winSources.find((s) => s.name === targetWin)
+          || winSources.find((s) => String(s.name || '').toLowerCase() === lowTarget)
+          || winSources.find((s) => String(s.name || '').toLowerCase().includes(lowTarget))
+          || (appSuffix.length >= 3
+            ? winSources.find((s) => {
+                const sn = String(s.name || '').toLowerCase();
+                return sn === appSuffix || sn.endsWith(` - ${appSuffix}`) || sn.endsWith(` – ${appSuffix}`) || sn.endsWith(` | ${appSuffix}`);
+              })
+            : null);
+        if (picked && picked.thumbnail && !picked.thumbnail.isEmpty()) {
+          img = picked.thumbnail;
+          capturedSpecificWindow = true;
+        } else {
+          logVisionTelemetry('scan', `Target window "${targetWin.slice(0, 50)}" not found or minimized — capturing screen instead.`);
+        }
+      }
+    } catch (_) {}
+  }
+
   let hidSettings = false;
   let sources = null;
-  try {
-    if (hideSettings && settingsWindow && !settingsWindow.isDestroyed() && settingsWindow.isVisible()) {
-      try {
-        settingsWindow.setOpacity(0);
-        hidSettings = true;
-        await new Promise((r) => setTimeout(r, 45));
-      } catch (_) {}
-    }
+  if (!img) {
+    try {
+      if (hideSettings && settingsWindow && !settingsWindow.isDestroyed() && settingsWindow.isVisible()) {
+        try {
+          settingsWindow.setOpacity(0);
+          hidSettings = true;
+          await new Promise((r) => setTimeout(r, 45));
+        } catch (_) {}
+      }
 
-    sources = await desktopCapturer.getSources({
-      types: ['screen'],
-      thumbnailSize: { width: targetW, height: thumbH },
-    });
-  } finally {
-    if (hidSettings && settingsWindow && !settingsWindow.isDestroyed()) {
-      try {
-        settingsWindow.setOpacity(1);
-      } catch (_) {}
+      sources = await Promise.race([
+        desktopCapturer.getSources({
+          types: ['screen'],
+          thumbnailSize: { width: targetW, height: thumbH },
+        }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('desktopCapturer-timeout')), 10000)),
+      ]).catch(() => null);
+    } finally {
+      if (hidSettings && settingsWindow && !settingsWindow.isDestroyed()) {
+        try {
+          settingsWindow.setOpacity(1);
+        } catch (_) {}
+      }
     }
+    img = (sources && sources.length && sources[0].thumbnail && !sources[0].thumbnail.isEmpty())
+      ? sources[0].thumbnail
+      : null;
   }
-  if (!sources || !sources.length) return null;
-  let img = sources[0].thumbnail;
-  if (!img || img.isEmpty()) return null;
-  // Crop to the foreground window (less clutter, bigger text) when asked.
-  if (wantCrop) {
+  if (!img) {
+    // Fullscreen DirectX/Vulkan games can lock or stall DXGI desktopCapturer;
+    // fall back to Windows GDI CopyFromScreen so screenshots keep working.
+    img = await captureScreenGdiFallback(targetW, thumbH, jpegQ);
+    if (!img || img.isEmpty()) return null;
+  }
+  // Crop to the foreground window (less clutter, bigger text) when asked
+  // (skipped when we already captured a specific target window directly).
+  if (capturedSpecificWindow) {
+    // Already isolated to the chosen window — no extra crop needed.
+  } else if (wantCrop) {
     const r = getForegroundWindowRect();
     if (r && r.width > 300 && r.height > 200) {
       const size = img.getSize();
@@ -5724,7 +5973,7 @@ function checkGameVision() {
       if (e && e.window && !e.window.isDestroyed()) { seen = true; break; }
     }
     if (!seen) return;
-    if (visionBusy) return;
+    if (isVisionBusyNow()) return;
     const now = Date.now();
     if (now < nextVisionAt) return;
     const iv = Math.max(15, Math.min(600, Number(config.visionGameIntervalSec) || 30)) * 1000;
@@ -5768,17 +6017,22 @@ function formatVisionCaptionDirect(raw, pet, isGameplay) {
 
 async function visionLook(reason, petId, opts) {
   const auto = !!(opts && opts.auto);
-  if (visionBusy) return { ok: false, error: 'busy' };
+  if (isVisionBusyNow()) return { ok: false, error: 'busy' };
   if (auto) {
     try {
       if ([...petWindows.values()].some((e) => e && e.dragging)) return { ok: false, error: 'busy' };
     } catch (_) {}
   }
   visionBusy = true;
+  visionBusySince = Date.now();
+  const myGen = ++visionRunGen;
   try {
     return await visionLookRun(reason, petId, opts);
   } finally {
-    visionBusy = false;
+    if (myGen === visionRunGen) {
+      visionBusy = false;
+      visionBusySince = 0;
+    }
   }
 }
 
@@ -5869,8 +6123,8 @@ Be specific and factual (2-5 concise sentences). Never invent text that isn't vi
 - What weapon or item they are holding ("nice gun!", "sharp sword!", "are you holding a potion?")
 - Scenery and atmosphere (dark cave/night, sunny daylight, raining/stormy)
 - Health bar or danger vignette
-React excitedly with ONE short sentence (under 25 words). No preamble, no thinking out loud.`
-      : `You are ${petName}, a playful desktop pet peeking at the human's screen.${fgHint}${vMood}${vOwner}${vPersona}${vMode}${vRestr}${vSelfAwareness} Output ONLY one short sentence (under 25 words) reacting to a SPECIFIC detail you see on screen (app, game, video/song title, code/error, chat, or artwork). No preamble, no thinking out loud.`;
+React excitedly with ONE short English sentence (under 25 words, English only, no Tagalog/Filipino). No preamble, no thinking out loud.`
+      : `You are ${petName}, a playful desktop pet peeking at the human's screen.${fgHint}${vMood}${vOwner}${vPersona}${vMode}${vRestr}${vSelfAwareness} Output ONLY one short English sentence (under 25 words, English only, no Tagalog/Filipino) reacting to a SPECIFIC detail you see on screen (app, game, video/song title, code/error, chat, or artwork). No preamble, no thinking out loud.`;
     const situation = String(reason || '').slice(0, 200);
     user = situation ? `React in character to what's on screen right now (${situation}).` : "React in character to what's on screen right now.";
   }
@@ -5878,7 +6132,7 @@ React excitedly with ONE short sentence (under 25 words). No preamble, no thinki
   let lastErr = { ok: false, error: 'off' };
   for (const target of targets) {
     logVisionTelemetry('llm-start', `Sending screen image to ${target.kind} (${target.model})...`);
-    const res = await visionCall(target, b64, system, user, { detail });
+    const res = await visionCall(target, b64, system, user, { detail, timeoutMs: auto ? 45000 : 90000 });
     if (res.ok) {
       let finalText = res.text;
       // Captioning-only models (like moondream) output dry 3rd-person image
@@ -5971,6 +6225,31 @@ React excitedly with ONE short sentence (under 25 words). No preamble, no thinki
 ipcMain.handle('vision-look', async (event, reason) => {
   const petId = getPetIdFromEvent(event);
   return visionLook(reason || 'manual look', petId);
+});
+
+ipcMain.handle('vision-list-windows', async () => {
+  try {
+    const sources = await Promise.race([
+      desktopCapturer.getSources({
+        types: ['window'],
+        thumbnailSize: { width: 0, height: 0 },
+      }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 6000)),
+    ]);
+    const skipRe = /^(desktop gremlin|virtual pet|chat with pet|program manager|windows input experience|nvidia geforce overlay|settings|microsoft text input application)$/i;
+    const seen = new Set();
+    const out = [];
+    for (const s of sources || []) {
+      const name = String(s.name || '').trim();
+      if (!name || skipRe.test(name) || seen.has(name)) continue;
+      seen.add(name);
+      out.push({ id: s.id, name });
+    }
+    out.sort((a, b) => a.name.localeCompare(b.name));
+    return { ok: true, windows: out };
+  } catch (err) {
+    return { ok: false, windows: [], error: String((err && err.message) || err) };
+  }
 });
 
 ipcMain.handle('vision-test', async () => {
@@ -7470,6 +7749,75 @@ function factsLine(config, user) {
   }
 }
 
+ipcMain.handle('memory-get', () => {
+  try {
+    ensureChatSeed();
+    const config = loadConfig();
+    const userFacts = (config.userFacts && typeof config.userFacts === 'object') ? config.userFacts : {};
+    let chatMessages = 0;
+    for (const arr of chatMemory.values()) {
+      if (Array.isArray(arr)) chatMessages += arr.length;
+    }
+    return {
+      ok: true,
+      userFacts,
+      chatScopes: chatMemory.size,
+      chatMessages,
+    };
+  } catch (err) {
+    return { ok: false, error: String((err && err.message) || err) };
+  }
+});
+
+ipcMain.handle('memory-save-facts', (_, rawFacts) => {
+  try {
+    const clean = {};
+    if (rawFacts && typeof rawFacts === 'object') {
+      for (const [k, list] of Object.entries(rawFacts)) {
+        const who = String(k || '').trim().toLowerCase().slice(0, 32);
+        if (!who || !Array.isArray(list)) continue;
+        const items = [];
+        const seen = new Set();
+        for (let i = 0; i < list.length && items.length < 30; i++) {
+          const entry = list[i];
+          const text = String(typeof entry === 'string' ? entry : (entry && entry.text) || '')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .slice(0, 140);
+          if (!text) continue;
+          const low = text.toLowerCase();
+          if (seen.has(low)) continue;
+          seen.add(low);
+          const key = (typeof entry === 'object' && entry && entry.key)
+            ? String(entry.key).trim().slice(0, 48)
+            : `lore:${items.length + 1}`;
+          items.push({ key, text });
+        }
+        if (items.length) clean[who] = items;
+      }
+    }
+    const config = loadConfig();
+    config.userFacts = clean;
+    saveConfig(config);
+    return { ok: true, userFacts: clean };
+  } catch (err) {
+    return { ok: false, error: String((err && err.message) || err) };
+  }
+});
+
+ipcMain.handle('memory-clear-chat', () => {
+  try {
+    ensureChatSeed();
+    chatMemory.clear();
+    const config = loadConfig();
+    config.chatMemory = {};
+    saveConfig(config);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: String((err && err.message) || err) };
+  }
+});
+
 async function discordReplyText(config, pet, text, where = 'Discord', noFallback = false, extra = {}) {
   const clean = String(text || '').slice(0, 200).trim();
   if (!clean) return '';
@@ -7685,7 +8033,10 @@ async function musicJoinVoice(guild, member) {
     selfDeaf: false,
     selfMute: false,
   });
+  st.connection.on('stateChange', () => syncDiscordPetHideMode());
   if (!await musicWaitReady(st.connection)) return { ok: false, error: 'connect-timeout' };
+  attachDiscordVoiceReceiver(guild.id, st);
+  syncDiscordPetHideMode();
   return { ok: true, channelName: vc.name };
 }
 
@@ -7794,18 +8145,20 @@ async function musicPlayCurrent(guildId) {
     const mediaUrl = await ytdlpAudioUrl(st.current.url);
     const { FFmpeg } = require('prism-media');
     const { createAudioResource, StreamType } = require('@discordjs/voice');
+    const vol = Math.max(0.05, Math.min(1.5, Number(loadConfig().musicVolume ?? 100) / 100));
+    // Native C libopus OggOpus stream: bypasses JS opusscript + VolumeTransformer
+    // on Electron's main thread so music stays smooth even under heavy load.
     const ffmpeg = new FFmpeg({
       args: [
         '-reconnect', '1', '-reconnect_streamed', '1', '-reconnect_delay_max', '5',
         '-user_agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36',
         '-i', mediaUrl,
         '-analyzeduration', '0', '-loglevel', 'error',
-        '-f', 's16le', '-ar', '48000', '-ac', '2',
+        '-af', `volume=${vol.toFixed(2)}`,
+        '-c:a', 'libopus', '-b:a', '96k', '-ar', '48000', '-ac', '2',
+        '-frame_duration', '20', '-f', 'ogg',
       ],
     });
-    // Loudness tap for the DJ visualizer: watches the decoded PCM (s16le
-    // stereo 48k) and reports RMS ~10x/sec. Passive — Discord still gets
-    // the full stream through `ffmpeg` itself.
     let tap = null;
     ffmpeg.on('error', () => {
       try {
@@ -7822,29 +8175,19 @@ async function musicPlayCurrent(guildId) {
       tap = new PassThrough();
       let lastLevelAt = 0;
       tap.on('data', (chunk) => {
-        try {
-          let sum = 0;
-          let n = 0;
-          for (let i = 0; i + 1 < chunk.length; i += 2) {
-            const s = chunk.readInt16LE(i);
-            sum += s * s;
-            n++;
-          }
-          if (!n) return;
-          const now = Date.now();
-          if (now - lastLevelAt > 100) {
-            lastLevelAt = now;
-            sendMusicLevel(Math.sqrt(sum / n) / 32768 * 2);
-          }
-        } catch (_) {}
+        const now = Date.now();
+        if (now - lastLevelAt > 120) {
+          lastLevelAt = now;
+          sendMusicLevel(Math.min(1, 0.25 + (chunk.length % 700) / 900));
+        }
       });
       ffmpeg.pipe(tap);
     } catch (_) {}
-    const resource = createAudioResource(ffmpeg, { inputType: StreamType.Raw, inlineVolume: true });
-    try {
-      const v = Math.max(0, Math.min(100, Number(loadConfig().musicVolume ?? 100))) / 100;
-      resource.volume.setVolume(v);
-    } catch (_) {}
+    const resource = createAudioResource(ffmpeg, {
+      inputType: StreamType.OggOpus,
+      inlineVolume: false,
+      silencePaddingFrames: 5,
+    });
     st.resource = resource;
     st.player.play(resource);
     st.failStreak = 0;
@@ -8069,6 +8412,281 @@ function musicFirstGuild() {
   return null;
 }
 
+function getActiveDiscordVoiceGuild() {
+  try {
+    const { VoiceConnectionStatus } = require('@discordjs/voice');
+    for (const [gid, st] of discordMusic) {
+      if (st && st.connection && st.connection.state && st.connection.state.status === VoiceConnectionStatus.Ready) {
+        return gid;
+      }
+    }
+  } catch (_) {}
+  return null;
+}
+
+let discordTtsChain = Promise.resolve();
+
+function encodeTtsToOggOpus(filePath, volumePct = 100) {
+  return new Promise((resolve) => {
+    const bin = FFMPEG_BIN || 'ffmpeg';
+    const vol = Math.max(0.05, Math.min(2, (Number(volumePct) || 100) / 100));
+    const args = [
+      '-hide_banner', '-loglevel', 'error',
+      '-i', filePath,
+      '-af', `volume=${vol.toFixed(2)},adelay=60|60,apad=pad_dur=0.12`,
+      '-c:a', 'libopus',
+      '-b:a', '64k',
+      '-ar', '48000',
+      '-ac', '2',
+      '-frame_duration', '20',
+      '-application', 'voip',
+      '-f', 'ogg',
+      'pipe:1',
+    ];
+    execFile(
+      bin,
+      args,
+      { encoding: 'buffer', maxBuffer: 8 * 1024 * 1024, windowsHide: true, timeout: 15000 },
+      (err, stdout) => {
+        if (err || !stdout || !stdout.length) return resolve(null);
+        resolve(stdout);
+      }
+    );
+  });
+}
+
+function playTtsInDiscordVoice(filePath, volumePct = 100) {
+  const run = async () => {
+    const gid = getActiveDiscordVoiceGuild();
+    if (!gid || !filePath || !fs.existsSync(filePath)) return false;
+    const st = musicState(gid);
+    if (!st || !st.connection) return false;
+    try {
+      const { Readable } = require('stream');
+      const { createAudioPlayer, createAudioResource, StreamType, AudioPlayerStatus, VoiceConnectionStatus, NoSubscriberBehavior } = require('@discordjs/voice');
+      if (st.connection.state?.status !== VoiceConnectionStatus.Ready) return false;
+
+      // Pre-encode off-thread via native C libopus into RAM so Electron's main
+      // thread never runs JS opusscript or VolumeTransformer (eliminates stutter).
+      const opusBuf = await encodeTtsToOggOpus(filePath, volumePct);
+      if (!opusBuf || !opusBuf.length) return false;
+      if (st.connection.state?.status !== VoiceConnectionStatus.Ready) return false;
+
+      if (!st.ttsPlayer) {
+        st.ttsPlayer = createAudioPlayer({
+          behaviors: { noSubscriber: NoSubscriberBehavior.Pause },
+        });
+      }
+      const wasPlayingMusic = !!(st.player && st.player.state && st.player.state.status === AudioPlayerStatus.Playing);
+      if (wasPlayingMusic) {
+        try { st.player.pause(); } catch (_) {}
+      }
+
+      const stream = Readable.from(opusBuf);
+      const resource = createAudioResource(stream, {
+        inputType: StreamType.OggOpus,
+        inlineVolume: false,
+        silencePaddingFrames: 5,
+      });
+
+      st.ttsSpeaking = true;
+      st.connection.subscribe(st.ttsPlayer);
+
+      await new Promise((resolve) => {
+        let settled = false;
+        let timer = null;
+        const cleanup = () => {
+          if (settled) return;
+          settled = true;
+          if (timer) { clearTimeout(timer); timer = null; }
+          try { st.ttsPlayer?.off(AudioPlayerStatus.Idle, onDone); } catch (_) {}
+          try { st.ttsPlayer?.off('error', onDone); } catch (_) {}
+          try { st.connection?.off('stateChange', onConnChange); } catch (_) {}
+          try { stream.destroy(); } catch (_) {}
+          resolve();
+        };
+        const onDone = () => cleanup();
+        const onConnChange = (_, newState) => {
+          if (newState && (newState.status === VoiceConnectionStatus.Disconnected || newState.status === VoiceConnectionStatus.Destroyed)) {
+            cleanup();
+          }
+        };
+        st.ttsPlayer.once(AudioPlayerStatus.Idle, onDone);
+        st.ttsPlayer.once('error', onDone);
+        st.connection.on('stateChange', onConnChange);
+        timer = setTimeout(cleanup, 25000);
+        try {
+          st.ttsPlayer.play(resource);
+        } catch (_) {
+          cleanup();
+        }
+      });
+
+      st.ttsSpeaking = false;
+      // Restore music player subscription and resume if music was paused for TTS.
+      try {
+        if (st.connection && st.connection.state?.status === VoiceConnectionStatus.Ready && st.player) {
+          st.connection.subscribe(st.player);
+          if (wasPlayingMusic) st.player.unpause();
+        }
+      } catch (_) {}
+      return true;
+    } catch (_) {
+      return false;
+    }
+  };
+  const next = discordTtsChain.then(run, run);
+  discordTtsChain = next.catch(() => {});
+  return next;
+}
+
+function pcm48StereoToWav16Mono(pcmChunks) {
+  const raw = Buffer.concat(pcmChunks);
+  // 48kHz stereo s16le -> 16kHz mono s16le (every 3rd frame, L+R averaged).
+  const totalFrames = Math.floor(raw.length / 4);
+  const outSamples = Math.floor(totalFrames / 3);
+  if (outSamples < 6000) return null; // < ~0.375s -> ignore brief clicks/breaths
+  const dataLen = outSamples * 2;
+  const wav = Buffer.alloc(44 + dataLen);
+  wav.write('RIFF', 0);
+  wav.writeUInt32LE(36 + dataLen, 4);
+  wav.write('WAVE', 8);
+  wav.write('fmt ', 12);
+  wav.writeUInt32LE(16, 16);
+  wav.writeUInt16LE(1, 20); // PCM
+  wav.writeUInt16LE(1, 22); // mono
+  wav.writeUInt32LE(16000, 24);
+  wav.writeUInt32LE(32000, 28);
+  wav.writeUInt16LE(2, 32);
+  wav.writeUInt16LE(16, 34);
+  wav.write('data', 36);
+  wav.writeUInt32LE(dataLen, 40);
+  let peak = 0;
+  for (let i = 0; i < outSamples; i++) {
+    const off = i * 12; // 3 frames * 4 bytes/frame
+    if (off + 3 >= raw.length) break;
+    const l = raw.readInt16LE(off);
+    const r = raw.readInt16LE(off + 2);
+    const mono = (l + r) >> 1;
+    const a = Math.abs(mono);
+    if (a > peak) peak = a;
+    wav.writeInt16LE(mono, 44 + i * 2);
+  }
+  if (peak < 350) return null; // silence gate
+  return wav;
+}
+
+async function transcribeAudioWav(bytes) {
+  const config = loadConfig();
+  const pet = getPetEntry(config, config.activePetId) || {};
+  const provider = String(pet.voiceHearProvider || 'gemini').toLowerCase();
+  if (!bytes || bytes.length < 45 || bytes.length > 2 * 1024 * 1024) {
+    return { ok: false, error: 'bad audio' };
+  }
+  if (provider === 'groq') return transcribeGroq(pet, bytes);
+  if (provider === 'local') return transcribeLocal(pet, bytes);
+  return transcribeGemini(config, pet, bytes);
+}
+
+function attachDiscordVoiceReceiver(guildId, st) {
+  if (!st || !st.connection || st.receiverAttached) return;
+  st.receiverAttached = true;
+  st.listeningUsers = new Set();
+  st.lastVcReplyAt = 0;
+  try {
+    const { EndBehaviorType } = require('@discordjs/voice');
+    const receiver = st.connection.receiver;
+    if (!receiver || !receiver.speaking) return;
+
+    receiver.speaking.on('start', (userId) => {
+      try {
+        const cfg = loadConfig();
+        if (!cfg.discordVoiceListen) return;
+        if (st.ttsSpeaking) return;
+        if (!userId || (discordClient?.user && userId === discordClient.user.id)) return;
+        if (st.listeningUsers.has(userId)) return;
+        if (Date.now() - (st.lastVcReplyAt || 0) < 2500) return;
+
+        st.listeningUsers.add(userId);
+        const OpusScript = require('opusscript');
+        const decoder = new OpusScript(48000, 2, OpusScript.Application.VOIP);
+        const opusStream = receiver.subscribe(userId, {
+          end: { behavior: EndBehaviorType.AfterSilence, duration: 900 },
+        });
+        const pcmChunks = [];
+        let totalBytes = 0;
+        const maxBytes = 48000 * 4 * 10; // cap at 10s
+        let finished = false;
+
+        const finishClip = async () => {
+          if (finished) return;
+          finished = true;
+          st.listeningUsers.delete(userId);
+          try { decoder.delete(); } catch (_) {}
+          try { opusStream.destroy(); } catch (_) {}
+          if (!pcmChunks.length) return;
+          const wav = pcm48StereoToWav16Mono(pcmChunks);
+          if (!wav) return;
+          const tr = await transcribeAudioWav(wav).catch(() => null);
+          const heard = String((tr && tr.ok && tr.text) || '').trim();
+          if (!heard || heard.length < 2) return;
+
+          const config = loadConfig();
+          if (!config.discordVoiceListen) return;
+          st.lastVcReplyAt = Date.now();
+
+          let speakerName = 'friend';
+          try {
+            const u = await discordClient?.users?.fetch(userId).catch(() => null);
+            if (u) speakerName = u.globalName || u.username || 'friend';
+          } catch (_) {}
+
+          const pet = getPetEntry(config, config.activePetId);
+          const scope = `discord:vc:${guildId}`;
+          const history = recallScope(scope, 8);
+          try { learnFacts(speakerName, heard); } catch (_) {}
+          const facts = factsLine(config, speakerName);
+          const sys = `${buildAiSystemPrompt(config, pet.id)}${facts ? '\n' + facts : ''}\nYou are currently in a Discord voice channel talking live with ${speakerName}. Reply naturally in 1-2 short spoken sentences.`;
+          const targets = aiTargets(config);
+          let reply = '';
+          if (targets.length && config.aiEnabled) {
+            const r = await runAiChatTargets(targets, {
+              messages: [
+                { role: 'system', content: sys },
+                ...history,
+                { role: 'user', content: `${speakerName} says in voice chat: "${heard}"` },
+              ],
+              max_tokens: 120,
+              temperature: 0.85,
+            }).catch(() => null);
+            if (r && r.ok && r.text) reply = r.text;
+          }
+          if (!reply) return;
+          reply = applyTtsWordFilter(reply, config);
+          try { rememberScope(scope, `${speakerName}: ${heard}`, reply); } catch (_) {}
+          sayAsPet(reply);
+        };
+
+        opusStream.on('data', (packet) => {
+          if (finished || totalBytes >= maxBytes) return;
+          try {
+            const decoded = decoder.decode(packet);
+            if (decoded && decoded.length) {
+              pcmChunks.push(Buffer.from(decoded));
+              totalBytes += decoded.length;
+            }
+          } catch (_) {}
+        });
+        opusStream.once('end', finishClip);
+        opusStream.once('error', finishClip);
+        setTimeout(finishClip, 11000);
+      } catch (_) {
+        st.listeningUsers?.delete(userId);
+      }
+    });
+  } catch (_) {}
+}
+
 function musicSnapshot() {
   const gid = musicFirstGuild();
   if (!gid) return { connected: false };
@@ -8252,8 +8870,11 @@ async function discordVoiceAction(action, query = '') {
         selfDeaf: false,
         selfMute: false,
       });
+      st.connection.on('stateChange', () => syncDiscordPetHideMode());
       const ok = await musicWaitReady(st.connection);
       if (!ok) return { ok: false, error: 'connect-timeout', message: `Could not connect to ${voiceChannel.name} (permissions?)~` };
+      attachDiscordVoiceReceiver(guild.id, st);
+      syncDiscordPetHideMode();
     }
     await musicEnsurePlayer(guild.id);
     return { ok: true, guild, voiceChannel: voiceChannel || { name: 'voice' }, st };
@@ -8270,9 +8891,13 @@ async function discordVoiceAction(action, query = '') {
     if (!gid) return { ok: false, message: "I'm not in any Discord voice channel right now~" };
     const st = musicState(gid);
     try {
+      st.ttsPlayer?.stop(true);
+    } catch (_) {}
+    try {
       st.connection?.destroy();
     } catch (_) {}
     discordMusic.delete(gid);
+    syncDiscordPetHideMode();
     return { ok: true, message: "Left the voice channel on Discord! 👋" };
   }
 
@@ -8460,9 +9085,13 @@ async function handleMusicCommand(msg, text) {
     }
     if (cmd === '!leave') {
       try {
+        st.ttsPlayer?.stop(true);
+      } catch (_) {}
+      try {
         st.connection?.destroy();
       } catch (_) {}
       discordMusic.delete(guild.id);
+      syncDiscordPetHideMode();
       await msg.reply('Left the stage~ 🎵').catch(() => {});
       return true;
     }
@@ -8909,14 +9538,46 @@ function mcChatForSpeech(text) {
   return t;
 }
 
+function applyTtsWordFilter(text, config = loadConfig()) {
+  let out = String(text || '');
+  if (!out || config.ttsFilterEnabled === false) return out;
+  const rawList = String(config.ttsFilteredWords || '').trim();
+  if (!rawList) return out;
+  const terms = rawList
+    .split(/[\r\n,]+/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .sort((a, b) => b.length - a.length);
+  if (!terms.length) return out;
+  for (const term of terms) {
+    try {
+      const esc = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const boundary = /^[a-z0-9]/i.test(term) && /[a-z0-9]$/i.test(term);
+      const re = new RegExp(boundary ? `\\b${esc}\\b` : esc, 'gi');
+      out = out.replace(re, 'filtered');
+    } catch (_) {}
+  }
+  return out;
+}
+
 function sayAsPet(text) {
   const config = loadConfig();
+  const filtered = applyTtsWordFilter(String(text || '').slice(0, 240), config);
   const pet = getPetEntry(config, config.activePetId);
   const petId = (pet && pet.id) || config.activePetId || (config.pets[0] && config.pets[0].id);
-  if (!petId) return;
-  sendToPetWindow(petId, 'pet-say', { text: String(text || '').slice(0, 240) });
-  tiktokPushLog(`${(pet && pet.name) || 'Pet'}: ${String(text || '').slice(0, 140)}`);
+  if (!petId) return filtered;
+  sendToPetWindow(petId, 'pet-say', { text: filtered });
+  tiktokPushLog(`${(pet && pet.name) || 'Pet'}: ${filtered.slice(0, 140)}`);
+  return filtered;
 }
+
+ipcMain.handle('pet-say-now', async (_, text) => {
+  const clean = String(text || '').trim().slice(0, 240);
+  if (!clean) return { ok: false, error: 'empty' };
+  const config = loadConfig();
+  const spoken = sayAsPet(clean);
+  return { ok: true, text: spoken, wasFiltered: spoken !== clean };
+});
 
 async function warmChatBrain() {
   // Pre-load the local chat brain so replies don't pay model-load cost
@@ -9309,6 +9970,105 @@ ipcMain.handle('mc-disconnect', async () => {
   }
 });
 
+let bedrockMod = null;
+function bedrockAutopilot() {
+  if (!bedrockMod) bedrockMod = require('./bedrock-autopilot.js');
+  return bedrockMod;
+}
+
+function bedrockPushStatus(s) {
+  try {
+    if (settingsWindow && !settingsWindow.isDestroyed()) {
+      settingsWindow.webContents.send('bedrock-status', s);
+    }
+  } catch (_) {}
+  if (!s || !s.running) {
+    try { globalShortcut.unregister('F8'); } catch (_) {}
+  }
+}
+
+ipcMain.handle('bedrock-status', async () => {
+  try {
+    return bedrockAutopilot().getStatus();
+  } catch (_) {
+    return { running: false, status: 'off', detail: '' };
+  }
+});
+
+ipcMain.handle('bedrock-start', async (_, opts = {}) => {
+  try {
+    const config = loadConfig();
+    const targets = visionTargets(config, { force: true });
+    if (!targets.length) {
+      return { ok: false, error: 'Configure a Vision AI model first (Settings → Vision).' };
+    }
+    // Prefer a full VLM (cloud or non-moondream local) since action planning needs JSON output.
+    const preferred =
+      targets.find((t) => t.kind === 'custom')
+      || targets.find((t) => !/moondream/i.test(String(t.model || '')))
+      || targets[0];
+
+    try {
+      globalShortcut.unregister('F8');
+      globalShortcut.register('F8', () => {
+        try {
+          const st = bedrockAutopilot().stop('Stopped via F8 kill switch.');
+          bedrockPushStatus(st.state || st);
+        } catch (_) {}
+      });
+    } catch (_) {}
+
+    const res = bedrockAutopilot().start(opts, {
+      onStatus: bedrockPushStatus,
+      onSay: (line) => {
+        try { sayAsPet(line); } catch (_) {}
+      },
+      getForeground: async () => {
+        let title = '';
+        let exe = '';
+        try {
+          const fg = await getForegroundTitle();
+          title = (fg && fg.title) || lastForegroundTitle || '';
+        } catch (_) {
+          title = lastForegroundTitle || '';
+        }
+        try {
+          if (initWin32User32() && win32User32.GetForegroundWindow) {
+            exe = getExeFromHwnd(win32User32.GetForegroundWindow()) || '';
+          }
+        } catch (_) {}
+        return { title, exe };
+      },
+      captureFrame: async () => {
+        const cap = await captureScreenJpeg(preferred.kind === 'ollama', {
+          detail: false,
+          hideSettings: false,
+          skipContrast: true,
+        });
+        if (!cap || !cap.jpeg) return '';
+        return Buffer.from(cap.jpeg).toString('base64');
+      },
+      decide: async (b64, system, user) => {
+        return visionCall(preferred, b64, system, user, { detail: false, timeoutMs: 25000 });
+      },
+    });
+    return res;
+  } catch (err) {
+    return { ok: false, error: String((err && err.message) || err).slice(0, 160) };
+  }
+});
+
+ipcMain.handle('bedrock-stop', async () => {
+  try {
+    try { globalShortcut.unregister('F8'); } catch (_) {}
+    const res = bedrockAutopilot().stop('Stopped.');
+    bedrockPushStatus(res.state || res);
+    return res;
+  } catch (err) {
+    return { ok: false, error: String((err && err.message) || err).slice(0, 120) };
+  }
+});
+
 function sendToPetWindow(petId, channel, data) {
   const entry = petWindows.get(petId);
   if (!entry?.window || entry.window.isDestroyed()) return;
@@ -9450,6 +10210,7 @@ app.whenReady().then(() => {
   } catch (_) {}
   globalShortcut.register('CommandOrControl+Shift+P', () => createSettingsWindow());
   globalShortcut.register('CommandOrControl+Shift+O', () => setPetEnabled(!isPetEnabled()));
+  globalShortcut.register('CommandOrControl+Shift+Q', () => toggleQuickWindow());
 
   // The settings window is the single heaviest thing built at boot (900px
   // Chromium + full form init + avatar previews) — only build it when asked
@@ -9465,6 +10226,7 @@ app.on('before-quit', () => {
 });
 
 app.on('will-quit', () => {
+  try { if (bedrockMod) bedrockMod.stop('App quitting.'); } catch (_) {}
   globalShortcut.unregisterAll();
   stopForegroundWatch();
   stopDetectionWatchers();
@@ -9958,7 +10720,8 @@ ipcMain.handle('save-config', (_, config) => {
   if (
     config.visionMode !== prev.visionMode ||
     config.visionGameLook !== prev.visionGameLook ||
-    config.visionGameIntervalSec !== prev.visionGameIntervalSec
+    config.visionGameIntervalSec !== prev.visionGameIntervalSec ||
+    config.visionWindowTarget !== prev.visionWindowTarget
   ) {
     nextVisionAt = Date.now() + 5000;
   }
@@ -9988,11 +10751,14 @@ ipcMain.handle('save-config', (_, config) => {
         if (config.vtsHidePet === false) {
           vtsPetHidden = false;
           applyVtsPetMode();
-        } else if (config.vtsSubtitles === false && subtitleWindow && !subtitleWindow.isDestroyed()) {
+        } else if (config.vtsSubtitles === false && !discordPetHidden && subtitleWindow && !subtitleWindow.isDestroyed()) {
           subtitleWindow.hide();
         }
       }
     } catch (_) {}
+  }
+  if (config.discordHidePet !== prev.discordHidePet) {
+    syncDiscordPetHideMode(config);
   }
 
   if (config.petEnabled !== prev.petEnabled) {
@@ -10180,6 +10946,7 @@ ipcMain.on('set-ignore-mouse', (event, ignore) => {
 });
 
 ipcMain.on('open-settings', () => createSettingsWindow());
+ipcMain.on('open-chat', () => createChatWindow(loadConfig().activePetId));
 
 ipcMain.on('show-pet-menu', (event) => {
   const petId = getPetIdFromEvent(event);
@@ -10343,49 +11110,117 @@ function voxBase(config = loadConfig()) {
 // ("sleepy" -> "S l e e p y"). Convert ASCII runs to katakana first — the
 // external engine reads katakana as-is, so this is safe for both backends.
 const ROMAJI_VOICE_EXCEPTIONS = {
-  yum: 'ヤム', yummy: 'ヤミー', nom: 'ノム', rawr: 'ラワー', grr: 'グルル',
+  // Exclamations & pet sounds
+  yum: 'ヤム', yummy: 'ヤミー', nom: 'ナム', rawr: 'ラワー', grr: 'グルル',
   purr: 'プルル', meow: 'ニャー', zzz: 'スースー', boop: 'ブープ',
   yay: 'イェーイ', woo: 'ウー', oof: 'ウーフ', whee: 'ウィー', gotcha: 'ガッチャ',
-  hello: 'ハロー', hey: 'ヘイ', hi: 'ハイ', thanks: 'サンクス', thank: 'サンク',
-  sorry: 'ソーリー', cute: 'キュート', love: 'ラブ', happy: 'ハッピー',
-  sleepy: 'スリーピー', tired: 'タイヤード', snack: 'スナック', gift: 'ギフト',
-  champion: 'チャンピオン', victory: 'ビクトリー', danger: 'デンジャー',
-  too: 'トゥー', see: 'スィー', zoo: 'ズー', you: 'ユー', won: 'ワン',
-  lucky: 'ラッキー', party: 'パーティ', my: 'ミー',
-  // Pronouns & helpers (native readings, not romaji spelling)
-  the: 'ザ', that: 'ザット', this: 'ジス', these: 'ジーズ', those: 'ゾーズ',
-  they: 'ゼイ', them: 'ゼム', then: 'ゼン', there: 'ゼア', their: 'ゼア',
-  your: 'ユア', youre: 'ユア', yours: 'ユアズ', are: 'アー', our: 'アワー',
-  was: 'ワズ', were: 'ワー', is: 'イズ', be: 'ビー', been: 'ビーン',
-  has: 'ハズ', have: 'ハブ', had: 'ハド', do: 'ドゥー', does: 'ダズ',
-  did: 'ディド', will: 'ウィル', would: 'ウッド', can: 'キャン', cant: 'キャント',
-  could: 'クッド', should: 'シュッド', not: 'ナット', no: 'ノー', yes: 'イエス',
-  so: 'ソウ', to: 'トゥー', of: 'オブ', or: 'オー', and: 'アンド',
-  for: 'フォー', with: 'ウィズ', from: 'フロム', up: 'アップ', out: 'アウト',
-  all: 'オール', one: 'ワン', me: 'ミー', we: 'ウィー', new: 'ニュー',
-  who: 'フー', what: 'ホワット', when: 'ウェン', where: 'ウェア', why: 'ワイ',
-  which: 'ウィッチ', while: 'ワイル', more: 'モア',
-  // Feelings & states
-  good: 'グッド', morning: 'モーニング', night: 'ナイト', love: 'ラブ',
-  like: 'ライク', want: 'ウォント', need: 'ニード', know: 'ノウ',
-  eat: 'イート', think: 'シンク', amazing: 'アメージング',
-  sorry: 'ソーリー', please: 'プリーズ', welcome: 'ウェルカム', come: 'カム',
-  here: 'ヒア', very: 'ベリー', really: 'リアリー', every: 'エブリ',
-  easy: 'イージー', hard: 'ハード', normal: 'ノーマル',
-  // Play & fun
-  look: 'ルック', food: 'フード', birthday: 'バースデー', friend: 'フレンド',
-  treat: 'トリート', senpai: 'センパイ', ohayo: 'オハヨウ',
-  raw: 'ロー', paw: 'ポー', yawn: 'ヨーン', nom: 'ナム',
-  // Games (boss guides, builds)
+  hello: 'ハロー', hey: 'ヘイ', hi: 'ハイ', bye: 'バイ', goodbye: 'グッバイ',
+  thanks: 'サンクス', thank: 'サンク', sorry: 'ソーリー', please: 'プリーズ',
+  welcome: 'ウェルカム', okay: 'オーケイ', ok: 'オーケイ', yeah: 'イェー',
+  yep: 'イェップ', nope: 'ノープ', nah: 'ナー', ugh: 'アグ', hmm: 'フム',
+  haha: 'ハハ', hehe: 'ヘヘ', lol: 'ロル', omg: 'オーエムジー', gg: 'ジージー',
+  afk: 'エーエフケー', brb: 'ビーアールビー', bro: 'ブロ', dude: 'デュード', bruh: 'ブラ',
+  // Pronouns, contractions & helpers
+  i: 'アイ', im: 'アイム', ill: 'アイル', ive: 'アイブ', id: 'アイド',
+  my: 'マイ', me: 'ミー', mine: 'マイン', myself: 'マイセルフ',
+  you: 'ユー', your: 'ユア', youre: 'ユア', yours: 'ユアズ', youll: 'ユール', youve: 'ユーブ',
+  we: 'ウィー', were: 'ウィア', our: 'アワー', us: 'アス',
+  he: 'ヒー', hes: 'ヒーズ', him: 'ヒム', his: 'ヒズ',
+  she: 'シー', shes: 'シーズ', her: 'ハー',
+  it: 'イット', its: 'イッツ',
+  the: 'ザ', that: 'ザット', thats: 'ザッツ', this: 'ジス', these: 'ジーズ', those: 'ゾーズ',
+  they: 'ゼイ', theyre: 'ゼア', them: 'ゼム', then: 'ゼン', there: 'ゼア', their: 'ゼア',
+  am: 'アム', is: 'イズ', isnt: 'イズント', are: 'アー', arent: 'アーント',
+  was: 'ワズ', wasnt: 'ワズント', be: 'ビー', been: 'ビーン', being: 'ビーイング',
+  has: 'ハズ', have: 'ハブ', havent: 'ハブント', had: 'ハド',
+  do: 'ドゥー', dont: 'ドント', does: 'ダズ', doesnt: 'ダズント', did: 'ディド', didnt: 'ディドゥント',
+  will: 'ウィル', wont: 'ウォント', would: 'ウッド', wouldnt: 'ウッドゥント',
+  can: 'キャン', cant: 'キャント', could: 'クッド', couldnt: 'クッドゥント',
+  should: 'シュッド', shouldnt: 'シュッドゥント', must: 'マスト',
+  not: 'ノット', no: 'ノー', yes: 'イエス', so: 'ソウ', to: 'トゥー', too: 'トゥー',
+  of: 'オブ', or: 'オー', and: 'アンド', but: 'バット', if: 'イフ', as: 'アズ',
+  for: 'フォー', with: 'ウィズ', without: 'ウィズアウト', from: 'フロム',
+  in: 'イン', into: 'イントゥー', on: 'オン', at: 'アット', by: 'バイ',
+  up: 'アップ', down: 'ダウン', out: 'アウト', off: 'オフ', over: 'オーバー', under: 'アンダー',
+  all: 'オール', some: 'サム', any: 'エニー', every: 'エブリ', each: 'イーチ',
+  one: 'ワン', two: 'トゥー', three: 'スリー', four: 'フォー', five: 'ファイブ',
+  six: 'シックス', seven: 'セブン', eight: 'エイト', nine: 'ナイン', ten: 'テン',
+  who: 'フー', what: 'ホワット', whats: 'ホワッツ', when: 'ウェン', where: 'ウェア',
+  why: 'ワイ', which: 'ウィッチ', while: 'ワイル', how: 'ハウ', hows: 'ハウズ',
+  more: 'モア', most: 'モスト', much: 'マッチ', many: 'メニー', very: 'ベリー',
+  really: 'リアリー', actually: 'アクチュアリー', seriously: 'シリアスリー',
+  literally: 'リテラリー', probably: 'プロバブリー', definitely: 'デフィニトリー',
+  maybe: 'メイビー', always: 'オールウェイズ', never: 'ネバー', again: 'アゲイン',
+  just: 'ジャスト', only: 'オンリー', even: 'イーヴン', still: 'スティル',
+  almost: 'オールモスト', already: 'オールレディ', enough: 'イナフ',
+  because: 'ビコーズ', cause: 'コーズ', before: 'ビフォー', after: 'アフター',
+  about: 'アバウト', around: 'アラウンド', through: 'スルー',
+  gonna: 'ゴナ', wanna: 'ワナ', gotta: 'ゴッタ', kinda: 'カインダ', lets: 'レッツ',
+  // Common words, feelings & states
+  good: 'グッド', great: 'グレート', awesome: 'オーサム', amazing: 'アメージング',
+  cool: 'クール', nice: 'ナイス', fine: 'ファイン', cute: 'キュート', sweet: 'スウィート',
+  super: 'スーパー', best: 'ベスト', better: 'ベター', worst: 'ワースト', bad: 'バッド',
+  happy: 'ハッピー', lucky: 'ラッキー', funny: 'ファニー', crazy: 'クレイジー',
+  weird: 'ウィアード', scary: 'スケアリー', angry: 'アングリー', bored: 'ボード',
+  busy: 'ビジー', ready: 'レディ', sleepy: 'スリーピー', tired: 'タイヤード', hungry: 'ハングリー',
+  easy: 'イージー', hard: 'ハード', normal: 'ノーマル', fast: 'ファスト', slow: 'スロウ',
+  big: 'ビッグ', small: 'スモール', little: 'リトル', long: 'ロング', short: 'ショート',
+  high: 'ハイ', low: 'ロウ', new: 'ニュー', old: 'オールド', young: 'ヤング',
+  first: 'ファースト', last: 'ラスト', next: 'ネクスト', right: 'ライト', left: 'レフト',
+  wrong: 'ロング', true: 'トゥルー', false: 'フォルス', real: 'リアル', free: 'フリー',
+  // Common verbs
+  love: 'ラブ', like: 'ライク', want: 'ウォント', need: 'ニード', know: 'ノウ',
+  think: 'シンク', thinking: 'シンキング', feel: 'フィール', look: 'ルック', looking: 'ルッキング',
+  see: 'シー', watch: 'ウォッチ', watching: 'ウォッチング', hear: 'ヒア', listen: 'リッスン',
+  talk: 'トーク', talking: 'トーキング', speak: 'スピーク', say: 'セイ', tell: 'テル',
+  eat: 'イート', eating: 'イーティング', sleep: 'スリープ', sleeping: 'スリーピング',
+  wake: 'ウェイク', come: 'カム', coming: 'カミング', go: 'ゴー', going: 'ゴーイング',
+  stay: 'ステイ', wait: 'ウェイト', waiting: 'ウェイティング', stop: 'ストップ',
+  walk: 'ウォーク', run: 'ラン', jump: 'ジャンプ', move: 'ムーブ', follow: 'フォロー',
+  play: 'プレイ', playing: 'プレイング', work: 'ワーク', working: 'ワーキング',
+  make: 'メイク', take: 'テイク', give: 'ギブ', get: 'ゲット', got: 'ゴット', put: 'プット',
+  find: 'ファインド', keep: 'キープ', help: 'ヘルプ', check: 'チェック', click: 'クリック',
+  open: 'オープン', close: 'クローズ', show: 'ショウ', try: 'トライ', use: 'ユーズ',
+  done: 'ダン', beat: 'ビート', win: 'ウィン', won: 'ワン', lose: 'ルーズ', lost: 'ロスト',
+  die: 'ダイ', dead: 'デッド', kill: 'キル', fight: 'ファイト', attack: 'アタック',
+  guard: 'ガード', protect: 'プロテクト', mine: 'マイン', chop: 'チョップ', dig: 'ディグ',
+  // Time, people & everyday nouns
+  morning: 'モーニング', night: 'ナイト', today: 'トゥデイ', tonight: 'トゥナイト',
+  tomorrow: 'トゥモロウ', now: 'ナウ', soon: 'スーン', later: 'レイター',
+  here: 'ヒア', home: 'ホーム', time: 'タイム', day: 'デイ', way: 'ウェイ',
+  world: 'ワールド', life: 'ライフ', name: 'ネーム', human: 'ヒューマン',
+  people: 'ピープル', person: 'パーソン', friend: 'フレンド', friends: 'フレンズ',
+  thing: 'シング', things: 'シングス', stuff: 'スタッフ',
+  nothing: 'ナッシング', something: 'サムシング', anything: 'エニシング', everything: 'エブリシング',
+  someone: 'サムワン', everyone: 'エブリワン', anyone: 'エニワン',
+  food: 'フード', snack: 'スナック', treat: 'トリート', gift: 'ギフト',
+  birthday: 'バースデー', party: 'パーティ', senpai: 'センパイ', ohayo: 'オハヨウ',
+  raw: 'ロー', paw: 'ポー', yawn: 'ヨーン', heart: 'ハート', head: 'ヘッド',
+  hand: 'ハンド', eyes: 'アイズ', voice: 'ボイス', sound: 'サウンド',
+  word: 'ワード', words: 'ワーズ', chat: 'チャット', message: 'メッセージ',
+  // Gaming, PC, Discord & Minecraft
+  game: 'ゲーム', games: 'ゲームズ', gaming: 'ゲーミング', player: 'プレイヤー',
   boss: 'ボス', level: 'レベル', battle: 'バトル', defense: 'ディフェンス',
-  defeat: 'ディフィート', strategy: 'ストラテジー', guide: 'ガイド',
-  build: 'ビルド', weapon: 'ウェポン', armor: 'アーマー', potion: 'ポーション',
-  heal: 'ヒール', magic: 'マジック', spell: 'スペル', stage: 'ステージ',
-  clear: 'クリア', continue: 'コンティニュー', retry: 'リトライ',
-  save: 'セーブ', load: 'ロード', start: 'スタート', option: 'オプション',
-  menu: 'メニュー', awesome: 'オーサム', call: 'コール',
-  how: 'ハウ', beat: 'ビート', lets: 'レッツ', game: 'ゲーム', much: 'マッチ',
-  play: 'プレイ',
+  defeat: 'ディフィート', victory: 'ビクトリー', champion: 'チャンピオン', danger: 'デンジャー',
+  strategy: 'ストラテジー', guide: 'ガイド', build: 'ビルド',
+  weapon: 'ウェポン', armor: 'アーマー', sword: 'ソード', bow: 'ボウ', arrow: 'アロー',
+  potion: 'ポーション', heal: 'ヒール', magic: 'マジック', spell: 'スペル',
+  stage: 'ステージ', clear: 'クリア', continue: 'コンティニュー', retry: 'リトライ',
+  save: 'セーブ', load: 'ロード', start: 'スタート', option: 'オプション', menu: 'メニュー',
+  minecraft: 'マインクラフト', bedrock: 'ベッドロック', java: 'ジャバ',
+  zombie: 'ゾンビ', creeper: 'クリーパー', skeleton: 'スケルトン', spider: 'スパイダー',
+  enderman: 'エンダーマン', dragon: 'ドラゴン', wither: 'ウィザー', warden: 'ウォーデン',
+  diamond: 'ダイヤモンド', iron: 'アイアン', gold: 'ゴールド', coal: 'コール',
+  wood: 'ウッド', stone: 'ストーン', dirt: 'ダート', water: 'ウォーター', lava: 'ラヴァ',
+  discord: 'ディスコード', youtube: 'ユーチューブ', spotify: 'スポティファイ',
+  twitch: 'ツイッチ', tiktok: 'ティックトック', steam: 'スチーム',
+  screen: 'スクリーン', stream: 'ストリーム', video: 'ビデオ', music: 'ミュージック',
+  song: 'ソング', server: 'サーバー', computer: 'コンピューター', pc: 'ピーシー',
+  keyboard: 'キーボード', mouse: 'マウス', browser: 'ブラウザー', chrome: 'クローム',
+  code: 'コード', file: 'ファイル', folder: 'フォルダー', error: 'エラー', bug: 'バグ',
+  window: 'ウィンドウ', tab: 'タブ', call: 'コール', ai: 'エーアイ', tts: 'ティーティーエス',
+  filtered: 'フィルタード',
+  zoo: 'ズー',
 };
 
 const ROMAJI_KANA_3 = {
@@ -10431,7 +11266,8 @@ const ROMAJI_KANA_2 = {
   sy: 'シ', py: 'ピ', ry: 'リ', gy: 'ギ', jy: 'ジ',
   hy: 'ヒ', by: 'ビ', fy: 'フィ', vy: 'ヴィ', chy: 'チ',
   sh: 'シュ', ch: 'チュ', qu: 'ク',
-  aa: 'アー', ii: 'イー', uu: 'ウー', ee: 'エー', oo: 'オー', ou: 'オー',
+  aa: 'アー', ii: 'イー', uu: 'ウー', ee: 'イー', oo: 'ウー', ou: 'アウ', ea: 'イー',
+  ai: 'エイ', ay: 'エイ', oi: 'オイ', oy: 'オイ', au: 'オー', ti: 'ティ', tu: 'トゥ',
 };
 
 const ROMAJI_KANA_1 = {
@@ -10445,11 +11281,47 @@ const ROMAJI_KANA_1 = {
 function romajiWordToKatakana(word) {
   const rawLower = word.toLowerCase();
   if (ROMAJI_VOICE_EXCEPTIONS[rawLower]) return ROMAJI_VOICE_EXCEPTIONS[rawLower];
-  let lower = rawLower.replace(/l/g, 'r').replace(/(c|g|s)e$/, (m, p) => (p === 'g' ? 'ジ' : 'ス'));
+  // Check simple plural / -ing / -ed stem in dictionary before falling back.
+  if (rawLower.length > 3 && rawLower.endsWith('s') && ROMAJI_VOICE_EXCEPTIONS[rawLower.slice(0, -1)]) {
+    return ROMAJI_VOICE_EXCEPTIONS[rawLower.slice(0, -1)] + 'ズ';
+  }
+  if (rawLower.length > 5 && rawLower.endsWith('ing') && ROMAJI_VOICE_EXCEPTIONS[rawLower.slice(0, -3)]) {
+    return ROMAJI_VOICE_EXCEPTIONS[rawLower.slice(0, -3)] + 'イング';
+  }
+  // English phonetic pre-normalization so Japanese TTS pronounces English
+  // naturally instead of raw romaji spelling.
+  let lower = rawLower
+    .replace(/^kn/, 'n')
+    .replace(/^wr/, 'r')
+    .replace(/^wh/, 'w')
+    .replace(/ph/g, 'f')
+    .replace(/igh(t?)/g, 'ai$1')
+    .replace(/tion$/g, 'ション')
+    .replace(/sion$/g, 'ジョン')
+    .replace(/ing$/g, 'イング')
+    .replace(/tch/g, 'ッチ')
+    .replace(/dge/g, 'ッジ')
+    .replace(/ck/g, 'ック')
+    .replace(/qu/g, 'クウ')
+    .replace(/([bcdfghjklmnpqrstvwxz])le$/g, '$1ル')
+    .replace(/er$/g, 'アー')
+    .replace(/or$/g, 'アー')
+    .replace(/ar(?=[bcdfghjklmnpqrstvwxz]|$)/g, 'アー')
+    .replace(/ow$/g, 'オウ')
+    .replace(/ow(?=[bcdfghjklmnpqrstvwxz])/g, 'アウ')
+    .replace(/([a-z])(c|g|s)e$/g, (_, pre, p) => pre + (p === 'g' ? 'ジ' : 'ス'))
+    .replace(/([bcdfghjklmnpqrstvwxz])e$/g, '$1')
+    .replace(/l/g, 'r');
   let out = '';
   let i = 0;
   while (i < lower.length) {
     const c = lower[i];
+    // Pass through katakana already inserted by phonetic rules above.
+    if (c >= '\u30A0' && c <= '\u30FF') {
+      out += c;
+      i += 1;
+      continue;
+    }
     const next = lower[i + 1] || '';
     if (c === next && 'bcdfghjklmpqrstvwxz'.includes(c)) {
       out += c === 'n' ? 'ン' : 'ッ';
@@ -10492,6 +11364,8 @@ function katakanaForVoice(text) {
     converted
       // "~" reads as an awkward pause — a long vowel flows instead.
       .replace(/~+/g, 'ー')
+      // Turn ASCII commas into Japanese pause marks so phrases breathe naturally.
+      .replace(/,/g, '、')
       // Spaces between katakana each force a phrase break (pause).
       // Join them so short lines flow; other spacing is untouched.
       // (Lookahead: plain /g/ would skip every other space.)
@@ -10865,16 +11739,26 @@ function pruneTtsCache() {
   }
 }
 
-ipcMain.handle('vox-speak', async (event, text, petId) => {
+ipcMain.handle('vox-speak', async (event, text, petId, opts = {}) => {
   const config = loadConfig();  const wid = getPetIdFromEvent(event);
   const pet = getPetEntry(config, petId || wid || config.activePetId);
   const backend = String(pet.voiceVoxBackend || 'external');
-  const raw = String(text || '').slice(0, 200).trim();
+  const raw = applyTtsWordFilter(String(text || '').slice(0, 200).trim(), config);
   // Edge/Kokoro speak English natively; VOICEVOX needs katakana so English
   // doesn't come out as romanized gibberish.
   const clean = (backend === 'edge' || backend === 'kokoro') ? raw : katakanaForVoice(raw.slice(0, 140));
   if (!clean) return { ok: false, error: 'empty' };
   const speed = Math.max(0.5, Math.min(2, Number(pet.voiceVoxSpeed ?? 1)));
+  const finishTts = async (destName) => {
+    const url = `pet-avatar://local/${encodeURIComponent(destName)}`;
+    if (!opts?.warm && config.discordTtsEnabled !== false && getActiveDiscordVoiceGuild()) {
+      if (discordPetHidden) pushSubtitle(raw, 15000, true);
+      const played = await playTtsInDiscordVoice(path.join(AVATARS_DIR, destName), pet.voiceVoxVolume ?? 100);
+      if (discordPetHidden) clearSubtitle();
+      if (played) return { ok: true, url, playedOnDiscord: true };
+    }
+    return { ok: true, url };
+  };
   if (backend === 'edge') {
     let voice = String(pet.voiceVoxSpeaker || '');
     if (!/^[a-z]{2}-[A-Z]{2}-[A-Za-z0-9]+Neural$/.test(voice)) voice = 'en-US-AnaNeural';
@@ -10889,7 +11773,7 @@ ipcMain.handle('vox-speak', async (event, text, petId) => {
       }
       pruneTtsCache();
     }
-    return { ok: true, url: 'pet-avatar://local/' + encodeURIComponent(destName) };
+    return finishTts(destName);
   }
   if (backend === 'kokoro') {
     let voice = String(pet.voiceVoxSpeaker || '');
@@ -10912,7 +11796,7 @@ ipcMain.handle('vox-speak', async (event, text, petId) => {
       }
       pruneTtsCache();
     }
-    return { ok: true, url: 'pet-avatar://local/' + encodeURIComponent(destName) };
+    return finishTts(destName);
   }
   const speaker = Number.isFinite(Number(pet.voiceVoxSpeaker)) ? Number(pet.voiceVoxSpeaker) : 1;
   if ((pet.voiceVoxBackend || 'external') === 'builtin') {
@@ -10946,7 +11830,7 @@ ipcMain.handle('vox-speak', async (event, text, petId) => {
       fs.writeFileSync(path.join(AVATARS_DIR, destName), wav);
       pruneTtsCache();
     }
-    return { ok: true, url: `pet-avatar://local/${encodeURIComponent(destName)}` };
+    return finishTts(destName);
   }
   const base = voxBase(config);
   const hash = crypto.createHash('sha1').update(`${speaker}|${speed}|${clean}`).digest('hex');
@@ -10978,7 +11862,7 @@ ipcMain.handle('vox-speak', async (event, text, petId) => {
     }
     pruneTtsCache();
   }
-  return { ok: true, url: `pet-avatar://local/${encodeURIComponent(destName)}` };
+  return finishTts(destName);
 });
 
 ipcMain.handle('test-gift', () => {

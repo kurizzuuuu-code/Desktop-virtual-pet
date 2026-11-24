@@ -894,6 +894,27 @@
       <p class="meter-hint" id="aiGraphLabel"></p>
       <p class="section-desc">Privacy: when ON, your chat messages are sent to the AI provider. Key is kept in your local config file.</p>
     </section>
+
+    <section>
+      <h2>Memory &amp; Lore Editor</h2>
+      <p class="section-desc">View, edit, or add facts she remembers about you and your friends across Chat, Discord, and Minecraft. Write one fact per line.</p>
+      <div class="row-inline" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;">
+        <select id="memPersonSelect" style="flex:1;min-width:140px;"></select>
+        <input type="text" id="memNewPerson" placeholder="Add person (e.g. kurizu)" style="flex:1;min-width:140px;">
+        <button type="button" id="memAddPerson" class="btn-secondary btn-small">Add person</button>
+        <button type="button" id="memDelPerson" class="btn-secondary btn-small">Delete person</button>
+      </div>
+      <label class="speech-field">
+        Remembered facts for selected person (one per line)
+        <textarea id="memFactsText" rows="5" placeholder="their name is Kurizu&#10;they love Valorant and late-night gaming&#10;their favorite snack is ramen"></textarea>
+      </label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:6px;">
+        <button type="button" id="memSaveBtn" class="btn-secondary btn-small">Save memory</button>
+        <button type="button" id="memRefreshBtn" class="btn-secondary btn-small">Refresh</button>
+        <button type="button" id="memClearChatBtn" class="btn-secondary btn-small">Clear chat history</button>
+      </div>
+      <p class="meter-hint" id="memStatus" aria-live="polite"></p>
+    </section>
         </div>
 
         <div id="panel-voice" class="panel">
@@ -1062,6 +1083,29 @@
         <input type="range" id="voiceVoxVolume" min="0" max="100" step="1">
       </label>
     </section>
+
+    <section>
+      <h2>Say as pet (TTS input)</h2>
+      <p class="section-desc">Type anything below and press Enter or Speak — your pet will say it out loud (or speak it in Discord VC when joined).</p>
+      <div style="display: flex; gap: 8px; align-items: center;">
+        <input type="text" id="ttsSayInput" placeholder="Type something for her to say…" style="flex: 1;" maxlength="240">
+        <button type="button" id="ttsSayBtn" class="btn-primary btn-small">Speak</button>
+      </div>
+      <p class="meter-hint" id="ttsSayStatus" aria-live="polite"></p>
+    </section>
+
+    <section>
+      <h2>Word filter ("filtered")</h2>
+      <p class="section-desc">Words or phrases she is not allowed to say. Whenever she tries to say one (in AI chat, vision, Discord VC, or TTS), it gets replaced with <strong>"filtered"</strong>.</p>
+      <label class="check">
+        <input type="checkbox" id="ttsFilterEnabled" checked>
+        Enable word filter
+      </label>
+      <label class="speech-field">
+        Filtered words / phrases (one per line or comma-separated)
+        <textarea id="ttsFilteredWords" rows="4" placeholder="badword1&#10;badword2&#10;secret phrase"></textarea>
+      </label>
+    </section>
         </div>
 
         <div id="panel-games" class="panel">
@@ -1202,7 +1246,16 @@
         <input type="text" id="visionCloudModel" placeholder="qwen/qwen-2.5-vl-7b-instruct">
       </label>
       <label class="speech-field">
-        Vision quality (Sharp = more readable text, slower & heavier)
+        Capture target (Entire Screen or lock onto one specific game / Discord / browser window)
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <select id="visionWindowTarget" style="flex: 1;">
+            <option value="">Entire Screen (Auto)</option>
+          </select>
+          <button type="button" id="refreshVisionWindows" class="btn-secondary btn-small" style="white-space: nowrap;">↻ Refresh</button>
+        </div>
+      </label>
+      <label class="speech-field">
+        Vision quality (Sharp = more readable text, slower &amp; heavier)
         <select id="visionQuality">
           <option value="fast">Fast (1024px)</option>
           <option value="balanced">Balanced (1400px)</option>
@@ -1440,6 +1493,18 @@
         <input type="checkbox" id="discordEnabled">
         Run Discord bot
       </label>
+      <label class="check">
+        <input type="checkbox" id="discordTtsEnabled" checked>
+        Speak pet TTS in Discord voice channel (mutes pet locally while joined)
+      </label>
+      <label class="check">
+        <input type="checkbox" id="discordHidePet">
+        Discord hide mode (hide pet on screen while joined in Discord VC — TTS &amp; on-screen subtitles stay active)
+      </label>
+      <label class="check">
+        <input type="checkbox" id="discordVoiceListen">
+        Two-way Discord VC listening (hear you &amp; friends in voice chat and reply out loud via TTS — uses your Voice Hear STT provider)
+      </label>
       <label class="speech-field">
         Bot token (stored only on this PC)
         <input type="password" id="discordToken" autocomplete="off" placeholder="Paste bot token here">
@@ -1672,6 +1737,24 @@
         <button type="button" id="mcDisconnect" class="btn-secondary btn-small">Disconnect</button>
       </div>
       <p class="meter-hint" id="mcStatus" aria-live="polite">Not connected.</p>
+    </section>
+
+    <section>
+      <h2>Minecraft Bedrock Autopilot (PC Control)</h2>
+      <p class="section-desc">Lets your pet directly play <strong>your own Minecraft Bedrock</strong> using Vision AI + real keyboard/mouse inputs. Automatically pauses whenever you Alt-Tab out of Minecraft. Press <strong>F8</strong> anytime as an emergency kill switch! (Works best with a Cloud Vision model like Gemini Flash or Qwen2.5-VL.)</p>
+      <label class="speech-field">
+        Goal / Instructions
+        <input type="text" id="bedrockGoal" value="Survive, explore, chop wood, and fight nearby hostile mobs" placeholder="e.g. Chop oak trees and explore">
+      </label>
+      <label class="range-label">
+        Decision pace: every <span id="bedrockIntervalSecVal">1.5</span> sec
+        <input type="range" id="bedrockIntervalSec" min="1" max="5" step="0.5" value="1.5">
+      </label>
+      <div class="prank-test-row">
+        <button type="button" id="bedrockStartBtn" class="btn-primary btn-small">Start Bedrock Autopilot</button>
+        <button type="button" id="bedrockStopBtn" class="btn-secondary btn-small">Stop (F8)</button>
+      </div>
+      <p class="meter-hint" id="bedrockStatus" aria-live="polite">Off — focus Minecraft Bedrock after starting.</p>
     </section>
 
     <section>

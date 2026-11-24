@@ -1,6 +1,6 @@
 {
   "name": "desktop-virtual-pet",
-  "version": "1.81.10",
+  "version": "1.82.0",
   "description": "Desktop Gremlin — a customizable desktop gremlin that moves, attacks your cursor, and loves head pets",
   "main": "main.js",
   "scripts": {
@@ -34,6 +34,7 @@
     "files": [
       "main.js",
       "minecraft-bot.js",
+      "bedrock-autopilot.js",
       "mc-worker.js",
       "vts-client.js",
       "voicevox-core.js",
@@ -42,6 +43,7 @@
       "tiktok-worker.js",
       "preload.js",
       "chat/**/*",
+      "quick/**/*",
       "scripts/**/*",
       "pet/**/*",
       "settings/**/*",
@@ -60,6 +62,7 @@
     ],
     "asarUnpack": [
       "minecraft-bot.js",
+      "bedrock-autopilot.js",
       "mc-worker.js",
       "contrast-worker.js",
       "tiktok-worker.js",

@@ -37,6 +37,10 @@ contextBridge.exposeInMainWorld('petAPI', {
   setCursorOverPet: (over) => ipcRenderer.send('pet-cursor-over', !!over),
   reportHitRegions: (regions) => ipcRenderer.send('pet-hit-regions', regions),
   openSettings: () => ipcRenderer.send('open-settings'),
+  openChat: () => ipcRenderer.send('open-chat'),
+  memoryGet: () => ipcRenderer.invoke('memory-get'),
+  memorySaveFacts: (userFacts) => ipcRenderer.invoke('memory-save-facts', userFacts),
+  memoryClearChat: () => ipcRenderer.invoke('memory-clear-chat'),
   showPetMenu: () => ipcRenderer.send('show-pet-menu'),
   startPetDrag: (offset) => ipcRenderer.send('pet-drag-start', offset),
   endPetDrag: () => ipcRenderer.send('pet-drag-end'),
@@ -108,7 +112,8 @@ contextBridge.exposeInMainWorld('petAPI', {
   testGift: () => ipcRenderer.invoke('test-gift'),
   voxTest: () => ipcRenderer.invoke('vox-test'),
   voxSpeakers: (backend) => ipcRenderer.invoke('vox-speakers', backend),
-  speakText: (text, petId) => ipcRenderer.invoke('vox-speak', text, petId),
+  speakText: (text, petId, opts) => ipcRenderer.invoke('vox-speak', text, petId, opts),
+  petSayNow: (text) => ipcRenderer.invoke('pet-say-now', text),
   voxCoreStatus: () => ipcRenderer.invoke('vox-core-status'),
   voxCoreDownload: () => ipcRenderer.invoke('vox-core-download'),
   voxCoreCancel: () => ipcRenderer.invoke('vox-core-cancel'),
@@ -138,6 +143,9 @@ contextBridge.exposeInMainWorld('petAPI', {
   onChatReply: (cb) => {
     ipcRenderer.on('chat-reply', (_, data) => cb(data));
   },
+  onChatStream: (cb) => {
+    ipcRenderer.on('chat-stream', (_, data) => cb(data));
+  },
   aiChat: (messages) => ipcRenderer.invoke('ai-chat', messages),
   proactiveChat: (brief) => ipcRenderer.invoke('proactive-chat', brief),
   agentChat: (messages) => ipcRenderer.invoke('agent-chat', messages),
@@ -160,6 +168,12 @@ contextBridge.exposeInMainWorld('petAPI', {
   },
   mcConnect: () => ipcRenderer.invoke('mc-connect'),
   mcDisconnect: () => ipcRenderer.invoke('mc-disconnect'),
+  bedrockStart: (opts) => ipcRenderer.invoke('bedrock-start', opts),
+  bedrockStop: () => ipcRenderer.invoke('bedrock-stop'),
+  bedrockStatus: () => ipcRenderer.invoke('bedrock-status'),
+  onBedrockStatus: (cb) => {
+    ipcRenderer.on('bedrock-status', (_, data) => cb(data));
+  },
   mcState: () => ipcRenderer.invoke('mc-state'),
   onMcStatus: (cb) => {
     ipcRenderer.on('mc-status', (_, data) => cb(data));
@@ -169,6 +183,7 @@ contextBridge.exposeInMainWorld('petAPI', {
   },
   visionLook: (reason) => ipcRenderer.invoke('vision-look', reason),
   visionTest: () => ipcRenderer.invoke('vision-test'),
+  visionListWindows: () => ipcRenderer.invoke('vision-list-windows'),
   applyPetQuality: (quality) => ipcRenderer.invoke('apply-pet-quality', quality),
   displayInfo: () => ipcRenderer.invoke('display-info'),
   vtsConnect: () => ipcRenderer.invoke('vts-connect'),

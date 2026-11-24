@@ -200,6 +200,8 @@ const APP_DEFAULTS = {
   gameOcrIntervalSec: 2,
   gameOcrQuality: 'balanced',
   voiceDevice: 'cpu',
+  ttsFilterEnabled: true,
+  ttsFilteredWords: '',
   aiEnabled: false,
   aiEndpoint: 'https://generativelanguage.googleapis.com/v1beta/openai',
   aiKey: '',
@@ -212,6 +214,9 @@ const APP_DEFAULTS = {
   discordChannelId: '',
 
   discordOwnerId: '',
+  discordTtsEnabled: true,
+  discordHidePet: false,
+  discordVoiceListen: false,
   tiktokEnabled: false,
   tiktokUsername: '',
   tiktokReplyCooldownSec: 20,
@@ -243,6 +248,7 @@ const APP_DEFAULTS = {
   visionCrop: true,
   visionContrast: 25,
   visionLowVram: true,
+  visionWindowTarget: '',
   petQuality: 'original',
   agentApps: 'calc\nnotepad\nmspaint',
   relationships: {},
@@ -530,6 +536,8 @@ function readForm() {
     gameOcrQuality: ['fast', 'balanced', 'sharp'].includes($('gameOcrQuality').value) ? $('gameOcrQuality').value : 'balanced',
     gameOcrRegion: ['full', 'center', 'top'].includes($('gameOcrRegion').value) ? $('gameOcrRegion').value : 'full',
     voiceDevice: $('voiceDevice').value === 'directml' ? 'directml' : 'cpu',
+    ttsFilterEnabled: $('ttsFilterEnabled') ? $('ttsFilterEnabled').checked : true,
+    ttsFilteredWords: $('ttsFilteredWords') ? $('ttsFilteredWords').value : '',
     aiEnabled: $('aiEnabled').checked,
     aiEndpoint: $('aiEndpoint').value.trim(),
     aiKey: $('aiKey').value,
@@ -542,6 +550,9 @@ function readForm() {
     discordChannelId: $('discordChannelId').value.trim(),
 
     discordOwnerId: $('discordOwnerId').value.trim(),
+    discordTtsEnabled: $('discordTtsEnabled').checked,
+    discordHidePet: $('discordHidePet').checked,
+    discordVoiceListen: $('discordVoiceListen') ? $('discordVoiceListen').checked : false,
     tiktokEnabled: $('tiktokEnabled').checked,
     tiktokUsername: $('tiktokUsername').value.trim(),
     tiktokReplyCooldownSec: Math.max(5, Math.min(120, parseInt($('tiktokReplyCooldownSec').value, 10) || 20)),
@@ -576,6 +587,7 @@ function readForm() {
     visionCrop: $('visionCrop').checked,
     visionContrast: parseInt($('visionContrast').value, 10) || 0,
     visionLowVram: $('visionLowVram') ? $('visionLowVram').checked : true,
+    visionWindowTarget: $('visionWindowTarget') ? String($('visionWindowTarget').value || '').trim() : '',
     petQuality: ['medium', 'low', 'verylow'].includes($('petQuality')?.value) ? $('petQuality').value : 'original',
     agentApps: $('agentApps').value,
     remoteEnabled: $('remoteEnabled').checked,
@@ -2038,6 +2050,8 @@ function fillForm(fullConfig) {
     ? fullConfig.gameOcrQuality
     : 'balanced';
   $('voiceDevice').value = fullConfig.voiceDevice === 'directml' ? 'directml' : 'cpu';
+  if ($('ttsFilterEnabled')) $('ttsFilterEnabled').checked = fullConfig.ttsFilterEnabled !== false;
+  if ($('ttsFilteredWords')) $('ttsFilteredWords').value = fullConfig.ttsFilteredWords || '';
   $('aiEnabled').checked = !!fullConfig.aiEnabled;
   $('aiEndpoint').value = fullConfig.aiEndpoint || '';
   $('aiKey').value = fullConfig.aiKey || '';
@@ -2050,6 +2064,9 @@ function fillForm(fullConfig) {
   $('discordChannelId').value = fullConfig.discordChannelId || '';
 
   $('discordOwnerId').value = fullConfig.discordOwnerId || '';
+  $('discordTtsEnabled').checked = fullConfig.discordTtsEnabled !== false;
+  $('discordHidePet').checked = !!fullConfig.discordHidePet;
+  if ($('discordVoiceListen')) $('discordVoiceListen').checked = !!fullConfig.discordVoiceListen;
   $('tiktokEnabled').checked = !!fullConfig.tiktokEnabled;
   $('tiktokUsername').value = fullConfig.tiktokUsername || '';
   $('tiktokReplyCooldownSec').value = fullConfig.tiktokReplyCooldownSec ?? 20;
@@ -2084,6 +2101,7 @@ function fillForm(fullConfig) {
   $('visionGameIntervalSec').value = fullConfig.visionGameIntervalSec ?? 60;
   $('visionGameIntervalSecVal').textContent = fullConfig.visionGameIntervalSec ?? 60;
   $('visionQuality').value = ['fast', 'balanced', 'sharp'].includes(fullConfig.visionQuality) ? fullConfig.visionQuality : 'balanced';
+  refreshVisionWindowsList(fullConfig.visionWindowTarget || '').catch(() => {});
   $('visionCrop').checked = fullConfig.visionCrop !== false;
   $('visionContrast').value = fullConfig.visionContrast ?? 25;
   $('visionContrastVal').textContent = fullConfig.visionContrast ?? 25;
@@ -2378,6 +2396,36 @@ async function waitForPetAPI(maxWaitMs = 8000) {
   return window.petAPI;
 }
 
+async function refreshVisionWindowsList(savedValue) {
+  const sel = $('visionWindowTarget');
+  if (!sel) return;
+  const prev = savedValue !== undefined ? String(savedValue || '') : String(sel.value || '');
+  try {
+    const res = await window.petAPI.visionListWindows?.();
+    const wins = (res && Array.isArray(res.windows)) ? res.windows : [];
+    sel.innerHTML = '';
+    const defOpt = document.createElement('option');
+    defOpt.value = '';
+    defOpt.textContent = 'Entire Screen (Auto)';
+    sel.appendChild(defOpt);
+    let foundPrev = !prev;
+    for (const w of wins) {
+      const opt = document.createElement('option');
+      opt.value = w.name;
+      opt.textContent = w.name.length > 72 ? w.name.slice(0, 70) + '…' : w.name;
+      if (w.name === prev) foundPrev = true;
+      sel.appendChild(opt);
+    }
+    if (prev && !foundPrev) {
+      const kept = document.createElement('option');
+      kept.value = prev;
+      kept.textContent = `${prev.length > 56 ? prev.slice(0, 54) + '…' : prev} (not open)`;
+      sel.appendChild(kept);
+    }
+    sel.value = prev;
+  } catch (_) {}
+}
+
 async function init() {
   const api = await waitForPetAPI();
   if (!api) {
@@ -2411,6 +2459,7 @@ async function init() {
   setupTutorial();
   setupSpeechSoundRows();
   updateSpeechSoundLabels(getActivePet());
+  setupMemoryEditor();
 
   $('winMin')?.addEventListener('click', () => window.petAPI.windowMin?.());
   $('winMax')?.addEventListener('click', () => window.petAPI.windowMaxToggle?.());
@@ -2785,6 +2834,33 @@ async function init() {
   window.petAPI.onDiscordStatus?.((data) => updateDiscordStatus(data));
 
   window.petAPI.onMcStatus?.((data) => updateMcStatus(data));
+  const updateBedrockStatus = (s) => {
+    const el = $('bedrockStatus');
+    if (!el || !s) return;
+    el.textContent = s.detail || (s.running ? 'Running (press F8 to stop)…' : 'Off.');
+    if ($('bedrockStartBtn')) $('bedrockStartBtn').disabled = !!s.running;
+    if ($('bedrockStopBtn')) $('bedrockStopBtn').disabled = !s.running;
+  };
+  window.petAPI.onBedrockStatus?.((data) => updateBedrockStatus(data));
+  window.petAPI.bedrockStatus?.().then((st) => updateBedrockStatus(st)).catch(() => {});
+  $('bedrockIntervalSec')?.addEventListener('input', () => {
+    const v = $('bedrockIntervalSecVal');
+    if (v) v.textContent = $('bedrockIntervalSec').value;
+  });
+  $('bedrockStartBtn')?.addEventListener('click', async () => {
+    const goal = String($('bedrockGoal')?.value || '').trim();
+    const intervalMs = Math.round((parseFloat($('bedrockIntervalSec')?.value) || 1.5) * 1000);
+    const res = await window.petAPI.bedrockStart?.({ goal, intervalMs });
+    if (res && !res.ok) {
+      updateBedrockStatus({ running: false, detail: `Could not start: ${res.error || 'unknown error'}` });
+    } else if (res?.state) {
+      updateBedrockStatus(res.state);
+    }
+  });
+  $('bedrockStopBtn')?.addEventListener('click', async () => {
+    const res = await window.petAPI.bedrockStop?.();
+    updateBedrockStatus(res?.state || { running: false, detail: 'Stopped.' });
+  });
   $('testVision')?.addEventListener('click', async () => {
     const el = $('visionStatus');
     await window.petAPI.saveConfig(readForm());
@@ -2867,6 +2943,19 @@ async function init() {
 
   $('visionScanNowBtn')?.addEventListener('click', () => {
     $('testVision')?.click();
+  });
+
+  $('refreshVisionWindows')?.addEventListener('click', async () => {
+    const btn = $('refreshVisionWindows');
+    if (btn) btn.disabled = true;
+    await refreshVisionWindowsList();
+    if (btn) btn.disabled = false;
+  });
+
+  $('visionWindowTarget')?.addEventListener('change', async () => {
+    try {
+      await window.petAPI.saveConfig(readForm());
+    } catch (_) {}
   });
   $('visionCooldownSec')?.addEventListener('input', () => {
     const v = $('visionCooldownSecVal');
@@ -3078,7 +3167,7 @@ async function init() {
     }
   });
 
-  ['aiEnabled', 'aiFallback', 'aiAgentEnabled', 'aiAgentMode', 'agentShell', 'discordEnabled'].forEach((id) => {
+  ['aiEnabled', 'aiFallback', 'aiAgentEnabled', 'aiAgentMode', 'agentShell', 'discordEnabled', 'discordTtsEnabled', 'discordHidePet', 'discordVoiceListen', 'ttsFilterEnabled'].forEach((id) => {
     $(id)?.addEventListener('change', async () => {
       await window.petAPI.saveConfig(readForm());
       refreshAiOnline(true);
@@ -3756,19 +3845,56 @@ async function init() {
     const ms = Date.now() - t0;
     if (el) {
       if (result?.ok) {
-        el.textContent = `Playing test voice (${result.gpuActive ? 'built-in GPU' : backend}, ${ms}ms)…`;
-        try {
-          const a = new Audio(result.url);
-          a.volume = Math.max(0, Math.min(1, (parseInt($('voiceVoxVolume').value, 10) || 100) / 100));
-          a.play().catch(() => { if (el) el.textContent = 'Synthesized but could not play.'; });
-        } catch (_) {
-          el.textContent = 'Synthesized but could not play.';
+        if (result.playedOnDiscord) {
+          el.textContent = `Played test voice in Discord VC (${result.gpuActive ? 'built-in GPU' : backend}, ${ms}ms)~`;
+        } else {
+          el.textContent = `Playing test voice (${result.gpuActive ? 'built-in GPU' : backend}, ${ms}ms)…`;
+          try {
+            const a = new Audio(result.url);
+            a.volume = Math.max(0, Math.min(1, (parseInt($('voiceVoxVolume').value, 10) || 100) / 100));
+            a.play().catch(() => { if (el) el.textContent = 'Synthesized but could not play.'; });
+          } catch (_) {
+            el.textContent = 'Synthesized but could not play.';
+          }
         }
       } else {
         const hint = vb === 'builtin' ? ' Built-in: download it above.' : vb === 'edge' ? ' Edge needs internet.' : vb === 'kokoro' ? ' Kokoro downloads its model on first use.' : ' External: launch VOICEVOX.';
         el.textContent = `Voice failed (${backend}): ${result?.error || 'unknown'}.${hint}`;
       }
     }
+  });
+
+  const sendManualSay = async () => {
+    const inp = $('ttsSayInput');
+    const st = $('ttsSayStatus');
+    const text = String(inp?.value || '').trim();
+    if (!text) return;
+    if (inp) inp.value = '';
+    try {
+      await window.petAPI.saveConfig(readForm());
+      const res = await window.petAPI.petSayNow?.(text);
+      if (st) {
+        if (res?.ok) {
+          st.textContent = res.wasFiltered
+            ? `Spoke (filtered): "${res.text}"`
+            : `Spoke: "${res.text}"`;
+        } else {
+          st.textContent = `Could not speak: ${res?.error || 'unknown'}`;
+        }
+      }
+    } catch (err) {
+      if (st) st.textContent = `Error: ${String((err && err.message) || err)}`;
+    }
+  };
+  $('ttsSayBtn')?.addEventListener('click', sendManualSay);
+  $('ttsSayInput')?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      sendManualSay();
+    }
+  });
+  $('ttsFilteredWords')?.addEventListener('change', async () => {
+    try { await window.petAPI.saveConfig(readForm()); } catch (_) {}
   });
 
   ['speechBgColor', 'speechTextColor', 'speechBorderColor'].forEach((id) => {
@@ -4039,6 +4165,132 @@ async function init() {
       setStatus('No backup found yet. A backup is saved automatically before every reset.');
     }
   });
+}
+
+function setupMemoryEditor() {
+  const sel = $('memPersonSelect');
+  const txt = $('memFactsText');
+  const newInp = $('memNewPerson');
+  const statusEl = $('memStatus');
+  if (!sel || !txt) return;
+
+  let draft = {};
+  let currentPerson = '';
+  let chatInfo = '';
+
+  const setMemStatus = (msg) => {
+    if (statusEl) statusEl.textContent = msg;
+  };
+
+  const commitCurrentToDraft = () => {
+    if (!currentPerson) return;
+    const lines = String(txt.value || '')
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter(Boolean);
+    draft[currentPerson] = lines.map((text, idx) => ({ key: `lore:${idx + 1}`, text }));
+  };
+
+  const renderSelect = (preferred = '') => {
+    const keys = Object.keys(draft).sort();
+    if (!keys.length) {
+      draft.owner = [];
+      keys.push('owner');
+    }
+    const target = preferred && Object.prototype.hasOwnProperty.call(draft, preferred)
+      ? preferred
+      : (currentPerson && Object.prototype.hasOwnProperty.call(draft, currentPerson) ? currentPerson : keys[0]);
+    sel.innerHTML = '';
+    for (const k of keys) {
+      const opt = document.createElement('option');
+      opt.value = k;
+      const count = Array.isArray(draft[k]) ? draft[k].length : 0;
+      opt.textContent = `${k} (${count} fact${count === 1 ? '' : 's'})`;
+      sel.appendChild(opt);
+    }
+    currentPerson = target;
+    sel.value = target;
+    const list = Array.isArray(draft[target]) ? draft[target] : [];
+    txt.value = list.map((f) => (typeof f === 'string' ? f : f.text)).filter(Boolean).join('\n');
+  };
+
+  const loadMemory = async () => {
+    try {
+      const res = await window.petAPI.memoryGet?.();
+      if (!res?.ok) {
+        setMemStatus(`Could not load memory: ${res?.error || 'unknown'}`);
+        return;
+      }
+      draft = {};
+      for (const [k, v] of Object.entries(res.userFacts || {})) {
+        if (Array.isArray(v)) draft[k] = v.slice();
+      }
+      chatInfo = `Chat history: ${res.chatMessages || 0} message(s) across ${res.chatScopes || 0} conversation(s).`;
+      renderSelect();
+      setMemStatus(chatInfo);
+    } catch (err) {
+      setMemStatus(`Load error: ${String((err && err.message) || err)}`);
+    }
+  };
+
+  sel.addEventListener('change', () => {
+    commitCurrentToDraft();
+    renderSelect(sel.value);
+  });
+
+  $('memAddPerson')?.addEventListener('click', () => {
+    const raw = String(newInp?.value || '').trim().toLowerCase().slice(0, 32);
+    if (!raw) return;
+    commitCurrentToDraft();
+    if (!draft[raw]) draft[raw] = [];
+    if (newInp) newInp.value = '';
+    renderSelect(raw);
+    txt.focus();
+    setMemStatus(`Added "${raw}" — enter facts and click Save memory.`);
+  });
+
+  $('memDelPerson')?.addEventListener('click', async () => {
+    if (!currentPerson) return;
+    const victim = currentPerson;
+    delete draft[victim];
+    currentPerson = '';
+    const res = await window.petAPI.memorySaveFacts?.(draft);
+    renderSelect();
+    setMemStatus(res?.ok ? `Removed "${victim}" from memory.` : `Failed: ${res?.error || 'unknown'}`);
+  });
+
+  $('memSaveBtn')?.addEventListener('click', async () => {
+    commitCurrentToDraft();
+    const res = await window.petAPI.memorySaveFacts?.(draft);
+    if (res?.ok) {
+      draft = {};
+      for (const [k, v] of Object.entries(res.userFacts || {})) {
+        if (Array.isArray(v)) draft[k] = v.slice();
+      }
+      renderSelect(currentPerson);
+      setMemStatus(`Memory saved! ${chatInfo}`);
+    } else {
+      setMemStatus(`Save failed: ${res?.error || 'unknown'}`);
+    }
+  });
+
+  $('memRefreshBtn')?.addEventListener('click', () => {
+    loadMemory();
+  });
+
+  $('memClearChatBtn')?.addEventListener('click', async () => {
+    const ok = window.confirm('Clear all saved chat conversation history? (Remembered user facts will NOT be deleted.)');
+    if (!ok) return;
+    const res = await window.petAPI.memoryClearChat?.();
+    if (res?.ok) {
+      chatInfo = 'Chat history: 0 message(s) across 0 conversation(s).';
+      setMemStatus(`Chat history cleared! ${chatInfo}`);
+    } else {
+      setMemStatus(`Clear failed: ${res?.error || 'unknown'}`);
+    }
+  });
+
+  loadMemory();
 }
 
 if (document.readyState === 'loading') {

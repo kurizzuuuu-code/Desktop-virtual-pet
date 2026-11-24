@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Quick Controls</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      background: transparent;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      color: #f4f4f8;
+      user-select: none;
+      overflow: hidden;
+    }
+    .bar {
+      margin: 6px;
+      background: rgba(15, 16, 24, 0.92);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 14px;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+      padding: 10px 12px 12px;
+      backdrop-filter: blur(14px);
+    }
+    .hdr {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      -webkit-app-region: drag;
+    }
+    .title {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.4px;
+      color: #c8cbe0;
+    }
+    .close-btn {
+      -webkit-app-region: no-drag;
+      background: transparent;
+      border: none;
+      color: #9ba0b8;
+      font-size: 15px;
+      cursor: pointer;
+      padding: 0 4px;
+      line-height: 1;
+    }
+    .close-btn:hover { color: #fff; }
+    .say-row {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 9px;
+    }
+    .say-row input {
+      flex: 1;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 8px;
+      color: #fff;
+      font-size: 12.5px;
+      padding: 6px 9px;
+      outline: none;
+    }
+    .say-row input:focus {
+      border-color: #ff7eb3;
+    }
+    .say-row button {
+      background: linear-gradient(135deg, #ff7eb3, #a855f7);
+      border: none;
+      border-radius: 8px;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 6px 12px;
+      cursor: pointer;
+    }
+    .pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .pill {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 999px;
+      color: #d7daf0;
+      font-size: 11.5px;
+      font-weight: 600;
+      padding: 4px 10px;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .pill:hover { background: rgba(255, 255, 255, 0.15); }
+    .pill.on {
+      background: rgba(168, 85, 247, 0.28);
+      border-color: rgba(192, 132, 252, 0.75);
+      color: #fff;
+    }
+    .hint {
+      margin-top: 7px;
+      font-size: 11px;
+      color: #8f94ad;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+  </style>
+</head>
+<body>
+  <div class="bar">
+    <div class="hdr">
+      <span class="title">Desktop Gremlin · Quick Controls (Ctrl+Shift+Q)</span>
+      <button type="button" class="close-btn" id="qClose" title="Hide (Esc)">×</button>
+    </div>
+    <div class="say-row">
+      <input type="text" id="qSayInput" placeholder="Say as pet (TTS / Discord VC)…" maxlength="240">
+      <button type="button" id="qSayBtn">Speak</button>
+    </div>
+    <div class="pills">
+      <button type="button" class="pill" id="qVision">👁 Vision</button>
+      <button type="button" class="pill" id="qScan">📸 Scan</button>
+      <button type="button" class="pill" id="qDiscordHide">👻 Hide VC</button>
+      <button type="button" class="pill" id="qDiscordListen">🎙 VC Listen</button>
+      <button type="button" class="pill" id="qChat">💬 Chat</button>
+      <button type="button" class="pill" id="qSettings">⚙ Settings</button>
+    </div>
+    <div class="hint" id="qStatus">Ready~</div>
+  </div>
+  <script src="quick.js"></script>
+</body>
+</html>

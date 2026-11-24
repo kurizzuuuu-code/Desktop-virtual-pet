@@ -78,7 +78,9 @@ let rawBlockAt = null;
 async function equipDigTool() {
   try {
     const items = invItems();
-    const tool = items.find((i) => i.name.includes('_pickaxe')) || items.find((i) => i.name.includes('_shovel'));
+    const tool = items.find((i) => i.name.includes('_pickaxe'))
+      || items.find((i) => i.name.includes('_axe'))
+      || items.find((i) => i.name.includes('_shovel'));
     if (tool) {
       try {
         await bot.equip(tool, 'hand').catch(() => {});
@@ -387,7 +389,7 @@ async function stuckRecover() {
         bl = bot.blockAt(bp.offset(fx, dy, fz));
       } catch (_) {}
       if (bl && bl.name && bl.name !== 'air' && bl.boundingBox !== 'empty'
-        && !/water|lava|bedrock|obsidian/.test(bl.name)) {
+        && !/water|lava|bedrock|obsidian|door|gate|chest|bed|glass|sign|banner|shulker|anvil|furnace|crafting_table|enchanting_table|beacon|spawner/.test(bl.name)) {
         try {
           bot.pathfinder.setGoal(null);
         } catch (_) {}
@@ -818,16 +820,32 @@ function scheduleReconnect() {
   } catch (_) {}
 }
 
+function resolvePlayerName(name) {
+  if (!bot || !bot.players || !name) return '';
+  if (bot.players[name]) return name;
+  const low = String(name).trim().toLowerCase();
+  for (const k of Object.keys(bot.players)) {
+    if (k.toLowerCase() === low) return k;
+  }
+  return '';
+}
+
 function followPlayer(name) {
   if (!bot) return false;
-  const target = name || following;
-  if (!target) return false;
+  const raw = name || following;
+  if (!raw) return false;
   try {
-    const entry = bot.players && bot.players[target];
+    const target = resolvePlayerName(raw);
+    if (!target) return false;
+    const entry = bot.players[target];
     const entity = entry && entry.entity;
     if (!entity) return false;
-    const { goals } = require('mineflayer-pathfinder');
     following = target;
+    if (standInMode || moddedLocked) {
+      directSteerTo(entity.position, 3);
+      return true;
+    }
+    const { goals } = require('mineflayer-pathfinder');
     bot.pathfinder.setGoal(new goals.GoalFollow(entity, 2), true);
     return true;
   } catch (_) {
@@ -836,6 +854,8 @@ function followPlayer(name) {
 }
 
 function stopMoving() {
+  directSteerActive = false;
+  directSteerTarget = null;
   try {
     if (bot) bot.pathfinder.setGoal(null);
   } catch (_) {}
@@ -1108,6 +1128,7 @@ async function strikeTarget(target) {
     const { goals } = require('mineflayer-pathfinder');
     if (dist > 3) {
       bot.pathfinder.setGoal(new goals.GoalFollow(target, 1.5), true);
+      return 'chase';
     } else {
       try {
         bot.pathfinder.setGoal(null);
@@ -1115,9 +1136,10 @@ async function strikeTarget(target) {
       try {
         await bot.attack(target);
       } catch (_) {}
+      return 'hit';
     }
   } catch (_) {}
-  return true;
+  return false;
 }
 
 function targetHeight(target) {
@@ -1397,8 +1419,7 @@ async function engageTarget(t) {
     }
     return true;
   }
-  await strikeTarget(t);
-  return true;
+  return await strikeTarget(t);
 }
 
 async function swimTick() {
@@ -1471,8 +1492,8 @@ async function brainTick() {
         debts.delete(key);
         continue;
       }
-      await engageTarget(t);
-      debts.set(key, owed - 1);
+      const act = await engageTarget(t);
+      if (act === 'hit' || act === true) debts.set(key, owed - 1);
       busyFighting = true;
       break; // one swing per tick — that's the deal
     }
@@ -1483,7 +1504,7 @@ async function brainTick() {
         const fresh = t && t !== bot.entity;
         const expired = Date.now() > bodyguard.until;
         if (!fresh || expired) {
-          if (fresh === null && bodyguard.announced) {
+          if (!fresh && !expired && bodyguard.announced) {
             try {
               bot.chat('Got it off you~');
             } catch (_) {}
@@ -1584,14 +1605,14 @@ async function brainTick() {
           try {
             pd = pe.position.distanceTo(bot.entity.position);
           } catch (_) {}
-          if (pd > 14) {
+          if (pd > 6) {
             followPlayer(following);
-          } else if (now > wanderAt) {
-            wanderAt = now + 9000 + Math.random() * 6000;
+          } else if (now > wanderAt && !bot.pathfinder.isMoving()) {
+            wanderAt = now + 10000 + Math.random() * 6000;
             try {
               const { goals } = require('mineflayer-pathfinder');
-              const dx = Math.round((Math.random() - 0.5) * 12);
-              const dz = Math.round((Math.random() - 0.5) * 12);
+              const dx = Math.round((Math.random() - 0.5) * 8);
+              const dz = Math.round((Math.random() - 0.5) * 8);
               if (dx || dz) {
                 bot.pathfinder.setGoal(new goals.GoalNear(pe.position.x + dx, pe.position.y, pe.position.z + dz, 2));
               }
@@ -2049,6 +2070,26 @@ async function sleepTick() {
   if (!bed) return;
   sleepTriedDay = day;
   try {
+    let bd = 99;
+    try {
+      bd = bed.position.distanceTo(bot.entity.position);
+    } catch (_) {}
+    if (bd > 3) {
+      const { goals } = require('mineflayer-pathfinder');
+      bot.pathfinder.setGoal(new goals.GoalNear(bed.position.x, bed.position.y, bed.position.z, 2));
+      for (let i = 0; i < 16; i++) {
+        await wait(500);
+        if (!bot || !bot.entity) return;
+        try {
+          if (bed.position.distanceTo(bot.entity.position) <= 2.5) break;
+        } catch (_) {
+          return;
+        }
+      }
+      try {
+        bot.pathfinder.setGoal(null);
+      } catch (_) {}
+    }
     await bot.sleep(bed);
   } catch (_) {
     try {
@@ -2144,7 +2185,7 @@ async function eatTick(fighting) {
   }
   if (!autoHunted && who) {
     autoHunted = true;
-    foodTask(who, 8).catch(() => {});
+    foodTask(who, 4, true).catch(() => {});
   }
 }
 
@@ -2226,7 +2267,7 @@ async function deliverTo(requester, matchRe, got, target, word) {
   if (following) followPlayer(following);
 }
 
-async function foodTask(requester, target = 8) {
+async function foodTask(requester, target = 8, keepForSelf = false) {
   if (!bot || taskBusy) {
     try {
       if (bot) bot.chat('One thing at a time~');
@@ -2239,9 +2280,9 @@ async function foodTask(requester, target = 8) {
   try {
     const startCount = countFood();
     try {
-      bot.chat(target > 1 ? `Hunting snacks, be right back~` : 'Snack run~');
+      bot.chat(keepForSelf ? 'Hunting myself a snack, brb~' : (target > 1 ? 'Hunting snacks, be right back~' : 'Snack run~'));
     } catch (_) {}
-    await gotoRequester(requester, alive);
+    if (!keepForSelf) await gotoRequester(requester, alive);
     const { goals } = require('mineflayer-pathfinder');
     let swings = 0;
     while (alive() && countFood() - startCount < target && swings < 120) {
@@ -2284,6 +2325,10 @@ async function foodTask(requester, target = 8) {
       try {
         bot.chat(`No snacks nearby${botPosString()}~`);
       } catch (_) {}
+      return;
+    }
+    if (keepForSelf) {
+      if (following) followPlayer(following);
       return;
     }
     await deliverTo(requester, /beef|porkchop|mutton|chicken|rabbit/, got, target, 'Snack');
@@ -2374,7 +2419,8 @@ async function mineSingle(block, toolSuffixes, ms = 15000) {
   };
   const dist = () => {
     try {
-      return targetPos.distanceTo(bot.entity.position);
+      const eye = bot.entity.position.offset(0, bot.entity.eyeHeight || 1.62, 0);
+      return targetPos.offset(0.5, 0.5, 0.5).distanceTo(eye);
     } catch (_) {
       return 99;
     }
@@ -2438,20 +2484,9 @@ async function mineSingle(block, toolSuffixes, ms = 15000) {
     if (!cur) return;
     stopPath();
     try {
-      bot.lookAt(cur.position.offset(0.5, 0.5, 0.5));
+      await bot.lookAt(cur.position.offset(0.5, 0.5, 0.5), true);
     } catch (_) {}
     await ensureToolInHand(tools);
-    try {
-      if (cur.position.y > bot.entity.position.y + 1.5) {
-        bot.setControlState('jump', true);
-        setTimeout(() => {
-          try {
-            bot.setControlState('jump', false);
-          } catch (_) {}
-        }, 300);
-        await wait(220);
-      }
-    } catch (_) {}
     let done = false;
     try {
       await Promise.race([
@@ -3801,10 +3836,10 @@ async function handleChat(username, message) {
   // Orders need an actual order word — her name alone ("Wisteria hello")
   // is chatter, not a follow command. Digits kept so "get 99 wood" parses.
   const cmd = low.replace(/[^a-z0-9 ]/g, ' ').trim();
-  const orderRe = /\b(come|stay|stop|wait|follow|jump|guard|protect|fight|wood|logs|chop|timber|bring|fetch|food|meat|hunt|dinner|snack|hungry|sleep|bed|bedtime|nap|scan|use|equip|wield|effects|buffs?|debuffs?|speed|debug|stone|cobble|dirt|sand|gravel|clay|coal|iron|copper|gold|redstone|lapis|diamond|emerald|quartz|obsidian|mine|dig|gather|collect|bridge|span|kill|murder|slay|assassinate|cancel|calm|peace|respawn|revive)\b/;
-  const startsOrder = /^(come|stay|stop|wait|follow|jump|here|guard|protect|fight|wood|chop|logs|timber|bring|fetch|food|meat|hunt|sleep|bed|nap|scan|use|equip|wield|effects|speed|debug|stone|dirt|sand|mine|dig|gather|bridge|kill|murder|slay|cancel|calm|peace|respawn)\b/.test(cmd);
+  const orderRe = /\b(come|stay|stop|wait|follow|jump|guard|protect|fight|wood|logs?|chop|timber|bring|get|fetch|food|meat|hunt|dinner|snack|hungry|sleep|bed|bedtime|nap|scan|use|equip|wield|effects?|buffs?|debuffs?|speed|debug|stones?|cobble\w*|dirt|sand|gravel|clay|coals?|iron|copper|gold|redstone|lapis|diamonds?|emeralds?|quartz|obsidian|mine|dig|gather|collect|bridge|span|kill|murder|slay|assassinate|cancel|calm|peace|respawn|revive|help|commands)\b/;
+  const startsOrder = /^(come|stay|stop|wait|follow|jump|here|guard|protect|fight|wood|chop|logs?|timber|bring|get|fetch|food|meat|hunt|sleep|bed|nap|scan|use|equip|wield|effects?|speed|debug|stone|dirt|sand|mine|dig|gather|collect|bridge|kill|murder|slay|cancel|calm|peace|respawn|revive|help|commands)\b/.test(cmd);
   const wantsCmd = startsOrder || (saysName && orderRe.test(cmd))
-    || /\b(come here|follow me|get wood|bring wood|stop guard|come back)\b/.test(cmd);
+    || /\b(come here|follow me|get wood|bring wood|get food|bring food|stop guard|come back)\b/.test(cmd);
   // Click commands are explicit enough to work without her name: "right
   // click", "press right click", "leftclick", "hit it with left click".
   const hasLeft = /\bleft ?click\b/.test(cmd);
@@ -3878,7 +3913,13 @@ async function handleChat(username, message) {
       } catch (_) {}
       return;
     }
-    if (/\brespawn\b|\bcome back\b|\brevive\b/.test(cmd)) {
+    if (/\bhelp\b|\bcommands\b/.test(cmd)) {
+      try {
+        bot.chat('Commands: follow/come/stay, guard/stop guard, kill <mob/player>, get <wood/stone/iron/diamond/food>, bridge <n>, sleep, equip <item>, look <here/there/coords>, cancel~');
+      } catch (_) {}
+      return;
+    }
+    if (/\brespawn\b|\brevive\b/.test(cmd)) {
       try {
         bot.respawn();
       } catch (_) {}
@@ -3912,13 +3953,18 @@ async function handleChat(username, message) {
       return;
     }
     if (/\bkill\b|\bmurder\b|\bslay\b|\bassassinate\b/.test(cmd)) {
-      const rest = cmd.replace(/.*?(\bkill\b|\bmurder\b|\bslay\b|\bassassinate\b)/, '').replace(/^(the|that|those)\s+/, '').trim();
-      // Named player first (exact IGN in the message wins).
+      const rest = cmd
+        .replace(/.*?(\bkill\b|\bmurder\b|\bslay\b|\bassassinate\b)/, '')
+        .replace(/^\s*(?:a|an|the|that|those|this|some)\s+/, '')
+        .replace(/\s+(?:please|pls|now|for me)\s*$/, '')
+        .trim();
+      // Named player first (word-boundary IGN match wins).
       let pname = '';
       try {
         for (const n of Object.keys(bot.players || {})) {
           if (bot.username && n === bot.username) continue;
-          if (rest.includes(n.toLowerCase())) {
+          const esc = n.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          if (new RegExp(`\\b${esc}\\b`).test(rest)) {
             pname = n;
             break;
           }
@@ -3934,7 +3980,11 @@ async function handleChat(username, message) {
         } catch (_) {}
         return;
       }
-      const key = KILL_ALIASES[rest] || rest.replace(/\s+/g, '');
+      const singular = rest
+        .replace(/\bendermen\b/g, 'enderman')
+        .replace(/\bwitches\b/g, 'witch')
+        .replace(/s$/, '');
+      const key = KILL_ALIASES[rest] || KILL_ALIASES[singular] || singular.replace(/\s+/g, '');
       const selfName = String((bot && bot.username) || '').toLowerCase();
       if (!key) {
         try {
@@ -3966,8 +4016,18 @@ async function handleChat(username, message) {
       return;
     }
     if (/\bcancel\b/.test(cmd) && !/cancelTask/.test(cmd)) {
-      clearHunt();
+      clearHunt(true);
       guardOff(true);
+      bodyguard = null;
+      taskBusy = false;
+      woodGen++;
+      try {
+        if (bot.collectBlock) bot.collectBlock.cancelTask();
+      } catch (_) {}
+      stopMoving();
+      try {
+        bot.chat('Cancelled~');
+      } catch (_) {}
       return;
     }
     if (/\bstop guard\b|\bcalm\b|\bpeace\b|\bno guard\b/.test(cmd)) {
@@ -3991,21 +4051,34 @@ async function handleChat(username, message) {
     if (/\buse\b|\bequip\b|\bwield\b/.test(cmd)) {
       guardOff(true);
       stayPut = false;
-      const useArg = cmd.replace(/^.*?\b(use|equip|wield)\b/, '').trim();
+      const useArg = cmd
+        .replace(/^.*?\b(use|equip|wield)\b/, '')
+        .replace(/^\s*(?:a|an|the|my|your|that|this)\s+/, '')
+        .replace(/\s+(?:please|pls|now)\s*$/, '')
+        .trim();
       useItemTask(username, useArg).catch(() => {});
       return;
     }
-    if (/\bwood\b|\blogs\b|\bstone\b|\bcobble\w*\b|\bdirt\b|\bsand\b|\bgravel\b|\bclay\b|\bcoal\b|\biron\b|\bcopper\b|\bgold\b|\bredstone\b|\blapis\b|\bdiamond\b|\bemerald\b|\bquartz\b|\bobsidian\b|\bchop\b|\btimber\b|\bmine\b|\bdig\b|\bgather\b|\bcollect\b|\bbring\b|\bget\b|\bfetch\b/.test(cmd)) {
+    if (/\bfood\b|\bmeat\b|\bhunt\b|\bdinner\b|\bsnack\b|\bhungry\b/.test(cmd)) {
+      guardOff(true);
+      stayPut = false;
+      const mNum = cmd.match(/\b(\d{1,3})\b/);
+      const want = Math.max(1, Math.min(64, mNum ? parseInt(mNum[1], 10) : 8));
+      foodTask(username, want).catch(() => {});
+      return;
+    }
+    if (/\bwood\b|\blogs?\b|\bstones?\b|\bcobble\w*\b|\bdirt\b|\bsand\b|\bgravel\b|\bclay\b|\bcoals?\b|\biron\b|\bcopper\b|\bgold\b|\bredstone\b|\blapis\b|\bdiamonds?\b|\bemeralds?\b|\bquartz\b|\bobsidian\b|\bchop\b|\btimber\b|\bmine\b|\bdig\b|\bgather\b|\bcollect\b|\bbring\b|\bget\b|\bfetch\b/.test(cmd)) {
       guardOff(true);
       stayPut = false;
       const mNum = cmd.match(/\b(\d{1,3})\b/);
       let matKey = '';
       for (const k of Object.keys(GATHER_MATS)) {
-        if (new RegExp(`\\b${k}\\b`).test(cmd)) {
+        if (new RegExp(`\\b${k}s?\\b`).test(cmd)) {
           matKey = k;
           break;
         }
       }
+      if (!matKey && /\b(chop|timber)\b/.test(cmd)) matKey = 'wood';
       if (!matKey) {
         try {
           bot.chat('Get what? Try wood, stone, dirt, sand, gravel, coal, iron, gold, diamond!');
@@ -4015,14 +4088,6 @@ async function handleChat(username, message) {
       const def = GATHER_MATS[matKey];
       const want = Math.max(1, Math.min(256, mNum ? parseInt(mNum[1], 10) : (def.ore ? 8 : 16)));
       gatherTask(username, want, def).catch(() => {});
-      return;
-    }
-    if (/\bfood\b|\bmeat\b|\bhunt\b|\bdinner\b|\bsnack\b|\bhungry\b/.test(cmd)) {
-      guardOff(true);
-      stayPut = false;
-      const mNum = cmd.match(/\b(\d{1,3})\b/);
-      const want = Math.max(1, Math.min(64, mNum ? parseInt(mNum[1], 10) : 8));
-      foodTask(username, want).catch(() => {});
       return;
     }
     if (/\bstay\b|\bstop\b|\bwait\b/.test(cmd)) {
@@ -4042,7 +4107,7 @@ async function handleChat(username, message) {
       return;
     }
     const mFollow = cmd.match(/\bfollow\s+([a-z0-9_]{2,16})\b/);
-    const who = mFollow ? mFollow[1] : username;
+    const who = (mFollow && mFollow[1] !== 'me') ? mFollow[1] : username;
     guardOff(true);
     clearHunt(true);
     taskBusy = false;
@@ -4087,6 +4152,13 @@ async function handleChat(username, message) {
 function startBot() {
   const opts = currentOpts;
   if (!opts) return;
+  stopBrainLoop();
+  taskBusy = false;
+  guardTicking = false;
+  combatBusy = false;
+  lootBusy = false;
+  woodGen += 1;
+  combatGen += 1;
   try {
     if (bot) {
       try {
@@ -4315,7 +4387,6 @@ function startBot() {
       try {
         const missing = [];
         if (!b.collectBlock) missing.push('collect');
-        if (!b.tool) missing.push('tool');
         if (!b.pathfinder || !b.pathfinder.movements) missing.push('movements');
         if (missing.length) {
           try {
@@ -4455,6 +4526,7 @@ function startBot() {
     try {
       detail = String((reason && reason.text) || JSON.stringify(reason) || 'kicked').slice(0, 160);
     } catch (_) {}
+    lastErr = detail;
     setStatus('offline', detail);
     scheduleReconnect();
   });

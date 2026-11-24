@@ -207,6 +207,26 @@ async function init() {
   }
   function closeActivityBox() { if (activityBox) activityBox.open = false; }
 
+  let streamEl = null;
+  let streamBuf = '';
+  window.petAPI.onChatStream?.((data) => {
+    if (!data) return;
+    if (data.delta) {
+      if (typingEl) {
+        typingEl.remove();
+        typingEl = null;
+      }
+      streamBuf += String(data.delta);
+      if (!streamEl) {
+        streamEl = document.createElement('div');
+        streamEl.className = 'msg pet';
+        logEl.appendChild(streamEl);
+      }
+      streamEl.textContent = streamBuf;
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+  });
+
   window.petAPI.onChatReply((data) => {
     if (typingEl) {
       typingEl.remove();
@@ -214,8 +234,18 @@ async function init() {
     }
     closeActivityBox();
     if (data?.text) {
-      addMsg(data.text, 'pet');
+      if (streamEl) {
+        streamEl.textContent = data.text;
+        streamEl = null;
+        streamBuf = '';
+      } else {
+        addMsg(data.text, 'pet');
+      }
       setBeamActive(false);
+    } else if (streamEl) {
+      streamEl.remove();
+      streamEl = null;
+      streamBuf = '';
     }
     closeActivityBox();
     if (data?.approval) {
